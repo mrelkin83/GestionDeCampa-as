@@ -1,0 +1,233 @@
+version: '3.8'
+
+services:
+  # ==============================================
+  # BASE DE DATOS POSTGRESQL 15 + POSTGIS
+  # ==============================================
+  postgres:
+    image: postgis/postgis:15-3.4
+    container_name: electoral_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: electoral_platform
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: secret
+      PGDATA: /var/lib/postgresql/data/pgdata
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./database/init:/docker-entrypoint-initdb.d
+    networks:
+      - electoral_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ==============================================
+  # REDIS 7 - CACHE Y QUEUE
+  # ==============================================
+  redis:
+    image: redis:7-alpine
+    container_name: electoral_redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - electoral_network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    command: redis-server --appendonly yes
+
+  # ==============================================
+  # BACKEND CORE - LARAVEL 11
+  # ==============================================
+  backend-core:
+    build:
+      context: ./backend-core
+      dockerfile: Dockerfile
+    container_name: electoral_backend_core
+    restart: unless-stopped
+    working_dir: /var/www
+    environment:
+      DB_CONNECTION: pgsql
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_DATABASE: electoral_platform
+      DB_USERNAME: postgres
+      DB_PASSWORD: secret
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      APP_ENV: local
+      APP_DEBUG: "true"
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend-core:/var/www
+      - backend_core_vendor:/var/www/vendor
+    networks:
+      - electoral_network
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: php artisan serve --host=0.0.0.0 --port=8000
+
+  # ==============================================
+  # BACKEND DÍA D - NESTJS
+  # ==============================================
+  backend-diad:
+    build:
+      context: ./backend-diad
+      dockerfile: Dockerfile
+    container_name: electoral_backend_diad
+    restart: unless-stopped
+    working_dir: /app
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USERNAME: postgres
+      DB_PASSWORD: secret
+      DB_DATABASE: electoral_platform
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      NODE_ENV: development
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./backend-diad:/app
+      - backend_diad_node_modules:/app/node_modules
+    networks:
+      - electoral_network
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: npm run start:dev
+
+  # ==============================================
+  # FRONTEND WEB - VITE
+  # ==============================================
+  frontend-web:
+    build:
+      context: ./frontend-web
+      dockerfile: Dockerfile
+    container_name: electoral_frontend_web
+    restart: unless-stopped
+    working_dir: /app
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./frontend-web:/app
+      - frontend_web_node_modules:/app/node_modules
+    networks:
+      - electoral_network
+    environment:
+      VITE_API_URL: http://localhost:8000/api/v1
+      VITE_DIAD_API_URL: http://localhost:3000/v1
+    command: npm run dev -- --host 0.0.0.0
+
+  # ==============================================
+  # PWA TESTIGOS - OFFLINE FIRST
+  # ==============================================
+  pwa-testigos:
+    build:
+      context: ./pwa-testigos
+      dockerfile: Dockerfile
+    container_name: electoral_pwa_testigos
+    restart: unless-stopped
+    working_dir: /app
+    ports:
+      - "5174:5174"
+    volumes:
+      - ./pwa-testigos:/app
+      - pwa_testigos_node_modules:/app/node_modules
+    networks:
+      - electoral_network
+    environment:
+      VITE_DIAD_API_URL: http://localhost:3000/v1
+    command: npm run dev -- --host 0.0.0.0 --port 5174
+
+  # ==============================================
+  # PGADMIN - ADMINISTRACIÓN BD (OPCIONAL)
+  # ==============================================
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: electoral_pgadmin
+    restart: unless-stopped
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@electoral.local
+      PGADMIN_DEFAULT_PASSWORD: admin
+      PGADMIN_CONFIG_SERVER_MODE: 'False'
+    ports:
+      - "5050:80"
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+    networks:
+      - electoral_network
+    depends_on:
+      - postgres
+
+  # ==============================================
+  # REDIS COMMANDER - UI REDIS (OPCIONAL)
+  # ==============================================
+  redis-commander:
+    image: rediscommander/redis-commander:latest
+    container_name: electoral_redis_commander
+    restart: unless-stopped
+    environment:
+      REDIS_HOSTS: local:redis:6379
+    ports:
+      - "8081:8081"
+    networks:
+      - electoral_network
+    depends_on:
+      - redis
+
+  # ==============================================
+  # MAILHOG - EMAIL TESTING (DESARROLLO)
+  # ==============================================
+  mailhog:
+    image: mailhog/mailhog:latest
+    container_name: electoral_mailhog
+    restart: unless-stopped
+    ports:
+      - "1025:1025"  # SMTP
+      - "8025:8025"  # Web UI
+    networks:
+      - electoral_network
+
+# ==============================================
+# VOLUMES PERSISTENTES
+# ==============================================
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+  backend_core_vendor:
+    driver: local
+  backend_diad_node_modules:
+    driver: local
+  frontend_web_node_modules:
+    driver: local
+  pwa_testigos_node_modules:
+    driver: local
+  pgadmin_data:
+    driver: local
+
+# ==============================================
+# NETWORK
+# ==============================================
+networks:
+  electoral_network:
+    driver: bridge

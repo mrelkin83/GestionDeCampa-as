@@ -1,0 +1,168 @@
+# ============================================
+# PLATAFORMA ELECTORAL COLOMBIA - .gitignore
+# ============================================
+
+# ================== GENERAL ==================
+.DS_Store
+.env
+.env.local
+.env.*.local
+*.log
+*.pid
+*.seed
+*.pid.lock
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.cache/
+.temp/
+tmp/
+
+# ================== NODE.JS ==================
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+package-lock.json
+yarn.lock
+.pnpm-debug.log*
+dist/
+build/
+.nuxt/
+.next/
+.vitepress/cache/
+
+# ================== PHP/LARAVEL ==============
+vendor/
+backend-core/vendor/
+backend-core/.env
+backend-core/.phpunit.result.cache
+backend-core/Homestead.json
+backend-core/Homestead.yaml
+backend-core/npm-debug.log
+backend-core/yarn-error.log
+backend-core/storage/*.key
+backend-core/storage/logs/*
+!backend-core/storage/logs/.gitkeep
+backend-core/storage/framework/cache/*
+!backend-core/storage/framework/cache/.gitkeep
+backend-core/storage/framework/sessions/*
+!backend-core/storage/framework/sessions/.gitkeep
+backend-core/storage/framework/views/*
+!backend-core/storage/framework/views/.gitkeep
+backend-core/bootstrap/cache/*
+!backend-core/bootstrap/cache/.gitkeep
+backend-core/public/storage
+backend-core/public/hot
+
+# ================== NESTJS ===================
+backend-diad/dist/
+backend-diad/node_modules/
+backend-diad/.env
+backend-diad/coverage/
+
+# ================== DATABASE =================
+*.sqlite
+*.sqlite3
+*.db
+database/backups/*.sql
+!database/backups/.gitkeep
+database/dumps/*.sql
+!database/dumps/.gitkeep
+
+# ================== INFRASTRUCTURE ===========
+infrastructure/.terraform/
+infrastructure/*.tfstate
+infrastructure/*.tfstate.backup
+infrastructure/.terraform.lock.hcl
+infrastructure/terraform.tfvars
+infrastructure/secrets/
+*.pem
+*.key
+*.crt
+*.p12
+
+# ================== FRONTEND =================
+frontend-web/dist/
+frontend-web/node_modules/
+frontend-web/.cache/
+
+pwa-testigos/dist/
+pwa-testigos/node_modules/
+pwa-testigos/.cache/
+pwa-testigos/sw.js
+pwa-testigos/workbox-*.js
+
+# ================== TESTING ==================
+coverage/
+.nyc_output/
+*.lcov
+test-results/
+playwright-report/
+
+# ================== AWS/CLOUD ================
+.aws/
+credentials
+*.tfvars
+
+# ================== SECRETS ==================
+secrets/
+*.secret
+*.password
+credentials.json
+service-account.json
+
+# ================== BACKUPS ==================
+backups/
+*.backup
+*.bak
+*.tar.gz
+*.zip
+
+# ================== OS SPECIFIC ==============
+Thumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+*.cab
+*.msi
+*.msix
+*.msm
+*.msp
+*.lnk
+
+# ================== IDEs ======================
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+.idea/
+*.iml
+*.ipr
+*.iws
+.project
+.classpath
+.settings/
+
+# ================== LOGS =====================
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+lerna-debug.log*
+
+# ================== MISC =====================
+.DS_Store
+.AppleDouble
+.LSOverride
+Icon
+._*
+.DocumentRevisions-V100
+.fseventsd
+.Spotlight-V100
+.TemporaryItems
+.Trashes
+.VolumeIcon.icns
+.com.apple.timemachine.donotpresent
