@@ -207,7 +207,7 @@ Octubre 2027:                  Producción (Elecciones)
 - ✅ Encriptación datos sensibles
 
 ## 📞 Contacto
-
+continua
 - **Proyecto:** Plataforma Electoral Colombia
 - **Inicio:** Diciembre 2024
 - **Lanzamiento objetivo:** Octubre 2027

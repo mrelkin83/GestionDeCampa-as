@@ -2,6 +2,8 @@
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Api\DepartamentoController;
 
 /*
 |--------------------------------------------------------------------------
@@ -9,58 +11,44 @@ use Illuminate\Support\Facades\Route;
 |--------------------------------------------------------------------------
 */
 
-Route::prefix('v1')->group(function () {
+Route::get('/health', function () {
+    return response()->json([
+        'success' => true,
+        'message' => 'Plataforma Electoral Colombia - Backend Core API',
+        'version' => '1.0.0',
+        'timestamp' => now()->toIso8601String(),
+    ]);
+});
 
-    // Health check
-    Route::get('/health', function () {
-        return response()->json([
-            'status' => 'ok',
-            'service' => 'Backend Core API',
-            'timestamp' => now()->toIso8601String(),
-            'version' => '1.0.0',
-        ]);
-    });
+/*
+|--------------------------------------------------------------------------
+| Autenticación (público)
+|--------------------------------------------------------------------------
+*/
+Route::prefix('auth')->group(function () {
+    Route::post('/login', [AuthController::class, 'login']);
+    Route::post('/register', [AuthController::class, 'register']);
+});
 
-    // Auth routes
+/*
+|--------------------------------------------------------------------------
+| Rutas protegidas (requieren autenticación)
+|--------------------------------------------------------------------------
+*/
+Route::middleware('auth:sanctum')->group(function () {
+
+    // Auth
     Route::prefix('auth')->group(function () {
-        Route::post('/login', [\App\Http\Controllers\Api\V1\AuthController::class, 'login']);
-        Route::post('/register', [\App\Http\Controllers\Api\V1\AuthController::class, 'register']);
-        Route::post('/logout', [\App\Http\Controllers\Api\V1\AuthController::class, 'logout'])->middleware('auth:sanctum');
-        Route::get('/me', [\App\Http\Controllers\Api\V1\AuthController::class, 'me'])->middleware('auth:sanctum');
+        Route::get('/me', [AuthController::class, 'me']);
+        Route::post('/logout', [AuthController::class, 'logout']);
     });
 
-    // Protected routes
-    Route::middleware('auth:sanctum')->group(function () {
-
-        // Campaigns
-        Route::apiResource('campaigns', \App\Http\Controllers\Api\V1\CampaignController::class);
-
-        // Electoral structure
-        Route::prefix('electoral')->group(function () {
-            Route::apiResource('departamentos', \App\Http\Controllers\Api\V1\Electoral\DepartamentoController::class);
-            Route::apiResource('municipios', \App\Http\Controllers\Api\V1\Electoral\MunicipioController::class);
-            Route::apiResource('circunscripciones', \App\Http\Controllers\Api\V1\Electoral\CircunscripcionController::class);
-            Route::apiResource('zonas', \App\Http\Controllers\Api\V1\Electoral\ZonaController::class);
-            Route::apiResource('puestos', \App\Http\Controllers\Api\V1\Electoral\PuestoController::class);
-            Route::apiResource('mesas', \App\Http\Controllers\Api\V1\Electoral\MesaController::class);
-        });
-
-        // CRM
-        Route::prefix('crm')->group(function () {
-            Route::apiResource('votantes', \App\Http\Controllers\Api\V1\Crm\VotanteController::class);
-            Route::apiResource('segmentos', \App\Http\Controllers\Api\V1\Crm\SegmentoController::class);
-            Route::apiResource('eventos', \App\Http\Controllers\Api\V1\Crm\EventoController::class);
-        });
-
-        // Communications
-        Route::prefix('communications')->group(function () {
-            Route::apiResource('campaigns', \App\Http\Controllers\Api\V1\Communication\CampaignController::class);
-            Route::post('send-sms', [\App\Http\Controllers\Api\V1\Communication\SmsController::class, 'send']);
-            Route::post('send-email', [\App\Http\Controllers\Api\V1\Communication\EmailController::class, 'send']);
-        });
-
-        // Usuarios y roles
-        Route::apiResource('users', \App\Http\Controllers\Api\V1\UserController::class);
-        Route::apiResource('roles', \App\Http\Controllers\Api\V1\RoleController::class);
+    // Estructura Electoral
+    Route::prefix('electoral')->group(function () {
+        // Departamentos
+        Route::get('/departamentos', [DepartamentoController::class, 'index']);
+        Route::get('/departamentos/{id}', [DepartamentoController::class, 'show']);
+        Route::get('/departamentos/{id}/municipios', [DepartamentoController::class, 'municipios']);
+        Route::get('/departamentos/{id}/estadisticas', [DepartamentoController::class, 'estadisticas']);
     });
 });
