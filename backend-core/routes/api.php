@@ -7,6 +7,7 @@ use App\Http\Controllers\Api\DepartamentoController;
 use App\Http\Controllers\Api\MunicipioController;
 use App\Http\Controllers\Api\PuestoVotacionController;
 use App\Http\Controllers\Api\CampanaController;
+use App\Http\Controllers\Api\VotanteController;
 
 /*
 |--------------------------------------------------------------------------
@@ -74,5 +75,15 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/{id}', [CampanaController::class, 'show']);
         Route::put('/{id}', [CampanaController::class, 'update']);
         Route::get('/{id}/estadisticas', [CampanaController::class, 'estadisticas']);
+    });
+
+    // CRM - Votantes
+    Route::prefix('crm/votantes')->group(function () {
+        Route::get('/', [VotanteController::class, 'index']);
+        Route::post('/', [VotanteController::class, 'store']);
+        Route::get('/estadisticas', [VotanteController::class, 'estadisticas']);
+        Route::get('/{id}', [VotanteController::class, 'show']);
+        Route::put('/{id}', [VotanteController::class, 'update']);
+        Route::post('/{id}/contacto', [VotanteController::class, 'registrarContacto']);
     });
 });
