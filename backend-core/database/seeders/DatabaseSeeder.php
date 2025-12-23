@@ -19,8 +19,8 @@ class DatabaseSeeder extends Seeder
             DepartamentosSeeder::class,
             MunicipiosSeeder::class,
 
-            // 3. Usuario administrador inicial (opcional)
-            // AdminUserSeeder::class,
+            // 3. Usuarios iniciales
+            AdminUserSeeder::class,
         ]);
 
         $this->command->info('');
@@ -30,9 +30,10 @@ class DatabaseSeeder extends Seeder
         $this->command->info('  - 6 roles creados');
         $this->command->info('  - 33 departamentos creados');
         $this->command->info('  - ~50 municipios principales creados');
+        $this->command->info('  - 5 usuarios de ejemplo creados');
         $this->command->info('');
         $this->command->warn('⚠️  Próximos pasos:');
-        $this->command->warn('  1. Crear usuario administrador');
+        $this->command->warn('  1. Cambiar contraseñas de usuarios iniciales');
         $this->command->warn('  2. Importar municipios completos (1102)');
         $this->command->warn('  3. Importar censo electoral');
         $this->command->warn('  4. Crear campaña de prueba');

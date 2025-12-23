@@ -4,6 +4,9 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\DepartamentoController;
+use App\Http\Controllers\Api\MunicipioController;
+use App\Http\Controllers\Api\PuestoVotacionController;
+use App\Http\Controllers\Api\CampanaController;
 
 /*
 |--------------------------------------------------------------------------
@@ -50,5 +53,26 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/departamentos/{id}', [DepartamentoController::class, 'show']);
         Route::get('/departamentos/{id}/municipios', [DepartamentoController::class, 'municipios']);
         Route::get('/departamentos/{id}/estadisticas', [DepartamentoController::class, 'estadisticas']);
+
+        // Municipios
+        Route::get('/municipios', [MunicipioController::class, 'index']);
+        Route::get('/municipios/{id}', [MunicipioController::class, 'show']);
+        Route::get('/municipios/{id}/puestos', [MunicipioController::class, 'puestos']);
+        Route::get('/municipios/{id}/estadisticas', [MunicipioController::class, 'estadisticas']);
+
+        // Puestos de Votación
+        Route::get('/puestos', [PuestoVotacionController::class, 'index']);
+        Route::get('/puestos/{id}', [PuestoVotacionController::class, 'show']);
+        Route::get('/puestos/cercanos', [PuestoVotacionController::class, 'cercanos']);
+        Route::get('/puestos/{id}/estadisticas', [PuestoVotacionController::class, 'estadisticas']);
+    });
+
+    // Campañas
+    Route::prefix('campanas')->group(function () {
+        Route::get('/', [CampanaController::class, 'index']);
+        Route::post('/', [CampanaController::class, 'store']);
+        Route::get('/{id}', [CampanaController::class, 'show']);
+        Route::put('/{id}', [CampanaController::class, 'update']);
+        Route::get('/{id}/estadisticas', [CampanaController::class, 'estadisticas']);
     });
 });
