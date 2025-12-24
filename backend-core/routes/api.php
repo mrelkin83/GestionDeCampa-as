@@ -13,6 +13,7 @@ use App\Http\Controllers\Api\DonacionController;
 use App\Http\Controllers\Api\DonanteController;
 use App\Http\Controllers\Api\ComunicacionController;
 use App\Http\Controllers\Api\GastoController;
+use App\Http\Controllers\Api\SegmentoController;
 
 /*
 |--------------------------------------------------------------------------
@@ -90,6 +91,18 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/{id}', [VotanteController::class, 'show']);
         Route::put('/{id}', [VotanteController::class, 'update']);
         Route::post('/{id}/contacto', [VotanteController::class, 'registrarContacto']);
+    });
+
+    // CRM - Segmentos
+    Route::prefix('crm/segmentos')->group(function () {
+        Route::get('/', [SegmentoController::class, 'index']);
+        Route::post('/', [SegmentoController::class, 'store']);
+        Route::get('/{id}', [SegmentoController::class, 'show']);
+        Route::put('/{id}', [SegmentoController::class, 'update']);
+        Route::delete('/{id}', [SegmentoController::class, 'destroy']);
+        Route::post('/{id}/agregar-votantes', [SegmentoController::class, 'agregarVotantes']);
+        Route::post('/{id}/remover-votantes', [SegmentoController::class, 'removerVotantes']);
+        Route::post('/{id}/recalcular', [SegmentoController::class, 'recalcular']);
     });
 
     // Eventos
