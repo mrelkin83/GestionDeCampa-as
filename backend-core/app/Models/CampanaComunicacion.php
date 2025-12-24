@@ -69,7 +69,22 @@ class CampanaComunicacion extends Model
 
     public function template(): BelongsTo
     {
-        return $this->belongsTo(TemplateComunicacion::class);
+        return $this->belongsTo(ComunicacionTemplate::class, 'template_id');
+    }
+
+    public function scopeProgramadas($query)
+    {
+        return $query->where('estado', 'programada');
+    }
+
+    public function scopeEnviadas($query)
+    {
+        return $query->where('estado', 'enviada');
+    }
+
+    public function scopePorCanal($query, string $canal)
+    {
+        return $query->where('canal', $canal);
     }
 
     public function segmento(): BelongsTo

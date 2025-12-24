@@ -8,6 +8,11 @@ use App\Http\Controllers\Api\MunicipioController;
 use App\Http\Controllers\Api\PuestoVotacionController;
 use App\Http\Controllers\Api\CampanaController;
 use App\Http\Controllers\Api\VotanteController;
+use App\Http\Controllers\Api\EventoController;
+use App\Http\Controllers\Api\DonacionController;
+use App\Http\Controllers\Api\DonanteController;
+use App\Http\Controllers\Api\ComunicacionController;
+use App\Http\Controllers\Api\GastoController;
 
 /*
 |--------------------------------------------------------------------------
@@ -85,5 +90,66 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/{id}', [VotanteController::class, 'show']);
         Route::put('/{id}', [VotanteController::class, 'update']);
         Route::post('/{id}/contacto', [VotanteController::class, 'registrarContacto']);
+    });
+
+    // Eventos
+    Route::prefix('eventos')->group(function () {
+        Route::get('/', [EventoController::class, 'index']);
+        Route::post('/', [EventoController::class, 'store']);
+        Route::get('/{id}', [EventoController::class, 'show']);
+        Route::put('/{id}', [EventoController::class, 'update']);
+        Route::post('/{id}/confirmar-asistencia', [EventoController::class, 'confirmarAsistencia']);
+        Route::post('/checkin/{qrToken}', [EventoController::class, 'checkin']);
+        Route::get('/{id}/estadisticas', [EventoController::class, 'estadisticas']);
+    });
+
+    // Donantes
+    Route::prefix('donantes')->group(function () {
+        Route::get('/', [DonanteController::class, 'index']);
+        Route::post('/', [DonanteController::class, 'store']);
+        Route::get('/{id}', [DonanteController::class, 'show']);
+        Route::put('/{id}', [DonanteController::class, 'update']);
+        Route::post('/{id}/marcar-invalido', [DonanteController::class, 'marcarInvalido']);
+        Route::get('/{id}/historial', [DonanteController::class, 'historialDonaciones']);
+    });
+
+    // Donaciones
+    Route::prefix('donaciones')->group(function () {
+        Route::get('/', [DonacionController::class, 'index']);
+        Route::post('/', [DonacionController::class, 'store']);
+        Route::get('/estadisticas', [DonacionController::class, 'estadisticas']);
+        Route::get('/{id}', [DonacionController::class, 'show']);
+        Route::post('/{id}/confirmar', [DonacionController::class, 'confirmar']);
+        Route::post('/{id}/rechazar', [DonacionController::class, 'rechazar']);
+        Route::post('/{id}/reportar-cne', [DonacionController::class, 'reportarCNE']);
+    });
+
+    // Comunicación
+    Route::prefix('comunicacion')->group(function () {
+        // Templates
+        Route::get('/templates', [ComunicacionController::class, 'indexTemplates']);
+        Route::post('/templates', [ComunicacionController::class, 'storeTemplate']);
+        Route::put('/templates/{id}', [ComunicacionController::class, 'updateTemplate']);
+
+        // Campañas de comunicación
+        Route::get('/campanas', [ComunicacionController::class, 'indexCampanas']);
+        Route::post('/campanas', [ComunicacionController::class, 'storeCampana']);
+        Route::post('/campanas/{id}/enviar', [ComunicacionController::class, 'enviarCampana']);
+        Route::get('/campanas/{id}/estadisticas', [ComunicacionController::class, 'estadisticasCampana']);
+
+        // Mensajes individuales
+        Route::post('/mensajes/individual', [ComunicacionController::class, 'enviarMensajeIndividual']);
+    });
+
+    // Gastos
+    Route::prefix('gastos')->group(function () {
+        Route::get('/', [GastoController::class, 'index']);
+        Route::post('/', [GastoController::class, 'store']);
+        Route::get('/estadisticas', [GastoController::class, 'estadisticas']);
+        Route::get('/{id}', [GastoController::class, 'show']);
+        Route::put('/{id}', [GastoController::class, 'update']);
+        Route::post('/{id}/aprobar', [GastoController::class, 'aprobar']);
+        Route::post('/{id}/rechazar', [GastoController::class, 'rechazar']);
+        Route::post('/{id}/reportar-cne', [GastoController::class, 'reportarCNE']);
     });
 });
