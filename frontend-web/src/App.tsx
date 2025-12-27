@@ -14,6 +14,11 @@ import VotantesListado from './pages/votantes/VotantesListado'
 import VotanteForm from './pages/votantes/VotanteForm'
 import VotanteDetalle from './pages/votantes/VotanteDetalle'
 
+// Segmentos
+import SegmentosListado from './pages/segmentos/SegmentosListado'
+import SegmentoForm from './pages/segmentos/SegmentoForm'
+import SegmentoDetalle from './pages/segmentos/SegmentoDetalle'
+
 function App() {
   return (
     <Router>
@@ -63,6 +68,32 @@ function App() {
             element={
               <ProtectedRoute>
                 <VotanteForm />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* Protected routes - Segmentos */}
+          <Route
+            path="/segmentos"
+            element={
+              <ProtectedRoute>
+                <SegmentosListado />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/segmentos/nuevo"
+            element={
+              <ProtectedRoute>
+                <SegmentoForm />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/segmentos/:id"
+            element={
+              <ProtectedRoute>
+                <SegmentoDetalle />
               </ProtectedRoute>
             }
           />
