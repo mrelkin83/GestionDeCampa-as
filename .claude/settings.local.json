@@ -11,7 +11,13 @@
       "Bash(docker --version:*)",
       "Bash(docker-compose:*)",
       "Bash(\"/c/Program Files/Docker/Docker/resources/bin/docker.exe\" --version)",
-      "Bash(git restore:*)"
+      "Bash(git restore:*)",
+      "Bash(npm create:*)",
+      "Bash(npm init -y)",
+      "Bash(npm install:*)",
+      "Bash(npx tailwindcss:*)",
+      "Bash(npm run build:*)",
+      "Bash(npm uninstall:*)"
     ],
     "deny": [],
     "ask": []

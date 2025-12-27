@@ -115,12 +115,12 @@ services:
     command: npm run start:dev
 
   # ==============================================
-  # FRONTEND WEB - VITE
+  # FRONTEND WEB - VITE + REACT
   # ==============================================
   frontend-web:
     build:
       context: ./frontend-web
-      dockerfile: Dockerfile
+      dockerfile: Dockerfile.dev
     container_name: electoral_frontend_web
     restart: unless-stopped
     working_dir: /app
@@ -132,9 +132,11 @@ services:
     networks:
       - electoral_network
     environment:
-      VITE_API_URL: http://localhost:8000/api/v1
-      VITE_DIAD_API_URL: http://localhost:3000/v1
-    command: npm run dev -- --host 0.0.0.0
+      VITE_API_URL: http://localhost:8000/api
+      VITE_DIAD_API_URL: http://localhost:3000
+    depends_on:
+      - backend-core
+      - backend-diad
 
   # ==============================================
   # PWA TESTIGOS - OFFLINE FIRST
