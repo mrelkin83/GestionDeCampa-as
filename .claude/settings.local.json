@@ -17,7 +17,8 @@
       "Bash(npm install:*)",
       "Bash(npx tailwindcss:*)",
       "Bash(npm run build:*)",
-      "Bash(npm uninstall:*)"
+      "Bash(npm uninstall:*)",
+      "Bash(timeout 10 npm run dev)"
     ],
     "deny": [],
     "ask": []

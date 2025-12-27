@@ -183,4 +183,380 @@ export const eventosAPI = {
   },
 }
 
+// Templates API
+export const templatesAPI = {
+  getAll: async (params?: any) => {
+    const response = await api.get('/communication/templates', { params })
+    return response.data
+  },
+
+  getById: async (id: number) => {
+    const response = await api.get(`/communication/templates/${id}`)
+    return response.data
+  },
+
+  create: async (data: any) => {
+    const response = await api.post('/communication/templates', data)
+    return response.data
+  },
+
+  update: async (id: number, data: any) => {
+    const response = await api.put(`/communication/templates/${id}`, data)
+    return response.data
+  },
+
+  delete: async (id: number) => {
+    const response = await api.delete(`/communication/templates/${id}`)
+    return response.data
+  },
+
+  preview: async (id: number, votanteId: number) => {
+    const response = await api.get(`/communication/templates/${id}/preview/${votanteId}`)
+    return response.data
+  },
+}
+
+// Campañas API
+export const campanasAPI = {
+  getAll: async (params?: any) => {
+    const response = await api.get('/communication/campanas', { params })
+    return response.data
+  },
+
+  getById: async (id: number) => {
+    const response = await api.get(`/communication/campanas/${id}`)
+    return response.data
+  },
+
+  create: async (data: any) => {
+    const response = await api.post('/communication/campanas', data)
+    return response.data
+  },
+
+  update: async (id: number, data: any) => {
+    const response = await api.put(`/communication/campanas/${id}`, data)
+    return response.data
+  },
+
+  delete: async (id: number) => {
+    const response = await api.delete(`/communication/campanas/${id}`)
+    return response.data
+  },
+
+  enviar: async (id: number) => {
+    const response = await api.post(`/communication/campanas/${id}/enviar`)
+    return response.data
+  },
+
+  programar: async (id: number, fecha: string) => {
+    const response = await api.post(`/communication/campanas/${id}/programar`, { fecha_programada: fecha })
+    return response.data
+  },
+
+  cancelar: async (id: number) => {
+    const response = await api.post(`/communication/campanas/${id}/cancelar`)
+    return response.data
+  },
+
+  estadisticas: async (id: number) => {
+    const response = await api.get(`/communication/campanas/${id}/estadisticas`)
+    return response.data
+  },
+
+  mensajes: async (id: number, params?: any) => {
+    const response = await api.get(`/communication/campanas/${id}/mensajes`, { params })
+    return response.data
+  },
+}
+
+// Mensajes API
+export const mensajesAPI = {
+  getAll: async (params?: any) => {
+    const response = await api.get('/communication/mensajes', { params })
+    return response.data
+  },
+
+  getById: async (id: number) => {
+    const response = await api.get(`/communication/mensajes/${id}`)
+    return response.data
+  },
+
+  reenviar: async (id: number) => {
+    const response = await api.post(`/communication/mensajes/${id}/reenviar`)
+    return response.data
+  },
+}
+
+// Donantes API
+export const donantesAPI = {
+  getAll: async (params?: any) => {
+    const response = await api.get('/donaciones/donantes', { params })
+    return response.data
+  },
+
+  getById: async (id: number) => {
+    const response = await api.get(`/donaciones/donantes/${id}`)
+    return response.data
+  },
+
+  create: async (data: any) => {
+    const response = await api.post('/donaciones/donantes', data)
+    return response.data
+  },
+
+  update: async (id: number, data: any) => {
+    const response = await api.put(`/donaciones/donantes/${id}`, data)
+    return response.data
+  },
+
+  delete: async (id: number) => {
+    const response = await api.delete(`/donaciones/donantes/${id}`)
+    return response.data
+  },
+
+  getDonaciones: async (id: number, params?: any) => {
+    const response = await api.get(`/donaciones/donantes/${id}/donaciones`, { params })
+    return response.data
+  },
+}
+
+// Donaciones API
+export const donacionesAPI = {
+  getAll: async (params?: any) => {
+    const response = await api.get('/donaciones', { params })
+    return response.data
+  },
+
+  getById: async (id: number) => {
+    const response = await api.get(`/donaciones/${id}`)
+    return response.data
+  },
+
+  create: async (data: any) => {
+    const response = await api.post('/donaciones', data)
+    return response.data
+  },
+
+  update: async (id: number, data: any) => {
+    const response = await api.put(`/donaciones/${id}`, data)
+    return response.data
+  },
+
+  delete: async (id: number) => {
+    const response = await api.delete(`/donaciones/${id}`)
+    return response.data
+  },
+
+  confirmar: async (id: number) => {
+    const response = await api.post(`/donaciones/${id}/confirmar`)
+    return response.data
+  },
+
+  rechazar: async (id: number, motivo?: string) => {
+    const response = await api.post(`/donaciones/${id}/rechazar`, { motivo })
+    return response.data
+  },
+
+  generarRecibo: async (id: number) => {
+    const response = await api.post(`/donaciones/${id}/recibo`)
+    return response.data
+  },
+
+  estadisticas: async (params?: any) => {
+    const response = await api.get('/donaciones/estadisticas', { params })
+    return response.data
+  },
+}
+
+// Recibos API
+export const recibosAPI = {
+  getAll: async (params?: any) => {
+    const response = await api.get('/donaciones/recibos', { params })
+    return response.data
+  },
+
+  getById: async (id: number) => {
+    const response = await api.get(`/donaciones/recibos/${id}`)
+    return response.data
+  },
+
+  descargar: async (id: number) => {
+    const response = await api.get(`/donaciones/recibos/${id}/pdf`, {
+      responseType: 'blob'
+    })
+    return response.data
+  },
+
+  regenerar: async (id: number) => {
+    const response = await api.post(`/donaciones/recibos/${id}/regenerar`)
+    return response.data
+  },
+}
+
+// Categorías de Gasto API
+export const categoriasGastoAPI = {
+  getAll: async (params?: any) => {
+    const response = await api.get('/gastos/categorias', { params })
+    return response.data
+  },
+
+  getById: async (id: number) => {
+    const response = await api.get(`/gastos/categorias/${id}`)
+    return response.data
+  },
+
+  create: async (data: any) => {
+    const response = await api.post('/gastos/categorias', data)
+    return response.data
+  },
+
+  update: async (id: number, data: any) => {
+    const response = await api.put(`/gastos/categorias/${id}`, data)
+    return response.data
+  },
+
+  delete: async (id: number) => {
+    const response = await api.delete(`/gastos/categorias/${id}`)
+    return response.data
+  },
+
+  presupuesto: async () => {
+    const response = await api.get('/gastos/categorias/presupuesto')
+    return response.data
+  },
+}
+
+// Gastos API
+export const gastosAPI = {
+  getAll: async (params?: any) => {
+    const response = await api.get('/gastos', { params })
+    return response.data
+  },
+
+  getById: async (id: number) => {
+    const response = await api.get(`/gastos/${id}`)
+    return response.data
+  },
+
+  create: async (data: any) => {
+    const response = await api.post('/gastos', data)
+    return response.data
+  },
+
+  update: async (id: number, data: any) => {
+    const response = await api.put(`/gastos/${id}`, data)
+    return response.data
+  },
+
+  delete: async (id: number) => {
+    const response = await api.delete(`/gastos/${id}`)
+    return response.data
+  },
+
+  aprobar: async (id: number) => {
+    const response = await api.post(`/gastos/${id}/aprobar`)
+    return response.data
+  },
+
+  rechazar: async (id: number, motivo?: string) => {
+    const response = await api.post(`/gastos/${id}/rechazar`, { motivo })
+    return response.data
+  },
+
+  marcarPagado: async (id: number) => {
+    const response = await api.post(`/gastos/${id}/pagar`)
+    return response.data
+  },
+
+  estadisticas: async (params?: any) => {
+    const response = await api.get('/gastos/estadisticas', { params })
+    return response.data
+  },
+
+  uploadRecibo: async (id: number, file: File) => {
+    const formData = new FormData()
+    formData.append('recibo', file)
+    const response = await api.post(`/gastos/${id}/recibo`, formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data'
+      }
+    })
+    return response.data
+  },
+}
+
+// Analytics API
+export const analyticsAPI = {
+  // Analytics general - todas las métricas
+  general: async (params?: any) => {
+    const response = await api.get('/analytics/general', { params })
+    return response.data
+  },
+
+  // Analytics de votantes
+  votantes: async (params?: any) => {
+    const response = await api.get('/analytics/votantes', { params })
+    return response.data
+  },
+
+  // Analytics financiero
+  financiero: async (params?: any) => {
+    const response = await api.get('/analytics/financiero', { params })
+    return response.data
+  },
+
+  // Analytics de comunicación
+  comunicacion: async (params?: any) => {
+    const response = await api.get('/analytics/comunicacion', { params })
+    return response.data
+  },
+
+  // Analytics de eventos
+  eventos: async (params?: any) => {
+    const response = await api.get('/analytics/eventos', { params })
+    return response.data
+  },
+
+  // Resumen ejecutivo
+  resumenEjecutivo: async (params?: any) => {
+    const response = await api.get('/analytics/resumen-ejecutivo', { params })
+    return response.data
+  },
+}
+
+// Reportes API
+export const reportesAPI = {
+  getAll: async (params?: any) => {
+    const response = await api.get('/reportes', { params })
+    return response.data
+  },
+
+  getById: async (id: number) => {
+    const response = await api.get(`/reportes/${id}`)
+    return response.data
+  },
+
+  generar: async (data: any) => {
+    const response = await api.post('/reportes/generar', data)
+    return response.data
+  },
+
+  descargar: async (id: number) => {
+    const response = await api.get(`/reportes/${id}/descargar`, {
+      responseType: 'blob'
+    })
+    return response.data
+  },
+
+  eliminar: async (id: number) => {
+    const response = await api.delete(`/reportes/${id}`)
+    return response.data
+  },
+
+  plantillas: async () => {
+    const response = await api.get('/reportes/plantillas')
+    return response.data
+  },
+}
+
 export default api

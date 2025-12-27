@@ -5,9 +5,11 @@ import MainLayout from '@/components/layout/MainLayout'
 import Table from '@/components/ui/Table'
 import Pagination from '@/components/ui/Pagination'
 import Badge from '@/components/ui/Badge'
+import { EmptyVotantesList, EmptySearchResults } from '@/components/ui/EmptyState'
 import FiltrosAvanzados from '@/components/votantes/FiltrosAvanzados'
 import { votantesAPI, departamentosAPI } from '@/lib/api'
 import { Votante, VotantePagination, VotanteFilters } from '@/types/votante'
+import { exportToCSV } from '@/lib/export'
 
 export default function VotantesListado() {
   const navigate = useNavigate()
@@ -72,6 +74,25 @@ export default function VotantesListado() {
   const handleApplyFilters = (newFilters: VotanteFilters) => {
     setFilters(newFilters)
     setCurrentPage(1)
+  }
+
+  const handleExport = () => {
+    if (!data?.data || data.data.length === 0) return
+
+    const exportData = data.data.map(votante => ({
+      Cédula: votante.cedula,
+      Nombre: votante.nombre,
+      Apellido: votante.apellido,
+      Teléfono: votante.celular || votante.telefono || '-',
+      Email: votante.email || '-',
+      Municipio: votante.municipio?.nombre || '-',
+      Departamento: votante.departamento?.nombre || '-',
+      'Intención de Voto': votante.intencion_voto || '-',
+      Scoring: votante.scoring || 0,
+      Contactos: votante.total_contactos || 0
+    }))
+
+    exportToCSV(exportData, `votantes-${new Date().toISOString().split('T')[0]}`)
   }
 
   const getScoringBadge = (scoring?: number) => {
@@ -200,7 +221,9 @@ export default function VotantesListado() {
             </button>
             <button
               type="button"
-              className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
+              onClick={handleExport}
+              disabled={!data?.data || data.data.length === 0}
+              className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <Download className="w-5 h-5" />
               <span>Exportar</span>
@@ -215,7 +238,21 @@ export default function VotantesListado() {
             columns={columns}
             loading={loading}
             onRowClick={(votante) => navigate(`/votantes/${votante.id}`)}
-            emptyMessage="No se encontraron votantes"
+            emptyState={
+              search ? (
+                <EmptySearchResults
+                  query={search}
+                  onClear={() => {
+                    setSearch('')
+                    setCurrentPage(1)
+                  }}
+                />
+              ) : (
+                <EmptyVotantesList
+                  onAction={() => navigate('/votantes/nuevo')}
+                />
+              )
+            }
           />
 
           {data && data.last_page > 1 && (

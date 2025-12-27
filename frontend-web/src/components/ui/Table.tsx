@@ -1,5 +1,6 @@
 import { ReactNode } from 'react'
 import { cn } from '@/lib/utils'
+import { Skeleton } from './Skeleton'
 
 interface Column<T> {
   header: string
@@ -12,7 +13,8 @@ interface TableProps<T> {
   columns: Column<T>[]
   onRowClick?: (row: T) => void
   loading?: boolean
-  emptyMessage?: string
+  emptyMessage?: string | ReactNode
+  emptyState?: ReactNode
 }
 
 export default function Table<T extends { id: number | string }>({
@@ -20,17 +22,45 @@ export default function Table<T extends { id: number | string }>({
   columns,
   onRowClick,
   loading = false,
-  emptyMessage = 'No hay datos para mostrar'
+  emptyMessage = 'No hay datos para mostrar',
+  emptyState
 }: TableProps<T>) {
   if (loading) {
     return (
-      <div className="flex justify-center items-center py-12">
-        <div className="w-8 h-8 border-4 border-primary-600 border-t-transparent rounded-full animate-spin"></div>
+      <div className="p-6">
+        <div className="space-y-4">
+          {/* Table Header Skeleton */}
+          <div className="flex gap-4 pb-3 border-b border-gray-200">
+            {columns.map((_, index) => (
+              <Skeleton key={index} className="h-4 w-32" />
+            ))}
+          </div>
+
+          {/* Table Rows Skeleton */}
+          {[...Array(5)].map((_, i) => (
+            <div key={i} className="flex gap-4 py-3 border-b border-gray-100">
+              {columns.map((_, index) => (
+                <Skeleton key={index} className="h-4 w-32" />
+              ))}
+            </div>
+          ))}
+        </div>
       </div>
     )
   }
 
   if (data.length === 0) {
+    // If custom empty state is provided, use it
+    if (emptyState) {
+      return <div className="py-6">{emptyState}</div>
+    }
+
+    // If emptyMessage is a ReactNode, render it directly
+    if (typeof emptyMessage !== 'string') {
+      return <div className="py-6">{emptyMessage}</div>
+    }
+
+    // Fallback to simple text message
     return (
       <div className="text-center py-12 text-gray-500">
         {emptyMessage}
