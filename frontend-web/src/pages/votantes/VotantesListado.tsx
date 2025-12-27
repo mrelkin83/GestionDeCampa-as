@@ -5,8 +5,9 @@ import MainLayout from '@/components/layout/MainLayout'
 import Table from '@/components/ui/Table'
 import Pagination from '@/components/ui/Pagination'
 import Badge from '@/components/ui/Badge'
-import { votantesAPI } from '@/lib/api'
-import { Votante, VotantePagination } from '@/types/votante'
+import FiltrosAvanzados from '@/components/votantes/FiltrosAvanzados'
+import { votantesAPI, departamentosAPI } from '@/lib/api'
+import { Votante, VotantePagination, VotanteFilters } from '@/types/votante'
 
 export default function VotantesListado() {
   const navigate = useNavigate()
@@ -14,10 +15,36 @@ export default function VotantesListado() {
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [currentPage, setCurrentPage] = useState(1)
+  const [showFilters, setShowFilters] = useState(false)
+  const [filters, setFilters] = useState<VotanteFilters>({})
+  const [departamentos, setDepartamentos] = useState<any[]>([])
+  const [municipios, setMunicipios] = useState<any[]>([])
+
+  useEffect(() => {
+    loadDepartamentos()
+  }, [])
 
   useEffect(() => {
     fetchVotantes()
-  }, [currentPage, search])
+  }, [currentPage, search, filters])
+
+  const loadDepartamentos = async () => {
+    try {
+      const response = await departamentosAPI.getAll()
+      setDepartamentos(response.data || [])
+    } catch (error) {
+      console.error('Error cargando departamentos:', error)
+    }
+  }
+
+  const loadMunicipios = async (departamentoId: number) => {
+    try {
+      const response = await departamentosAPI.getMunicipios(departamentoId)
+      setMunicipios(response.data || [])
+    } catch (error) {
+      console.error('Error cargando municipios:', error)
+    }
+  }
 
   const fetchVotantes = async () => {
     try {
@@ -25,7 +52,8 @@ export default function VotantesListado() {
       const response = await votantesAPI.getAll({
         page: currentPage,
         search: search || undefined,
-        per_page: 15
+        per_page: 15,
+        ...filters
       })
       setData(response)
     } catch (error) {
@@ -39,6 +67,11 @@ export default function VotantesListado() {
     e.preventDefault()
     setCurrentPage(1)
     fetchVotantes()
+  }
+
+  const handleApplyFilters = (newFilters: VotanteFilters) => {
+    setFilters(newFilters)
+    setCurrentPage(1)
   }
 
   const getScoringBadge = (scoring?: number) => {
@@ -159,6 +192,7 @@ export default function VotantesListado() {
             </div>
             <button
               type="button"
+              onClick={() => setShowFilters(true)}
               className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
             >
               <Filter className="w-5 h-5" />
@@ -195,6 +229,15 @@ export default function VotantesListado() {
           )}
         </div>
       </div>
+
+      <FiltrosAvanzados
+        isOpen={showFilters}
+        onClose={() => setShowFilters(false)}
+        onApply={handleApplyFilters}
+        departamentos={departamentos}
+        municipios={municipios}
+        onDepartamentoChange={loadMunicipios}
+      />
     </MainLayout>
   )
 }

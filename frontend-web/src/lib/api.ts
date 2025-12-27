@@ -112,6 +112,49 @@ export const votantesAPI = {
   },
 }
 
+// Segmentos API
+export const segmentosAPI = {
+  getAll: async (params?: any) => {
+    const response = await api.get('/crm/segmentos', { params })
+    return response.data
+  },
+
+  getById: async (id: number) => {
+    const response = await api.get(`/crm/segmentos/${id}`)
+    return response.data
+  },
+
+  create: async (data: any) => {
+    const response = await api.post('/crm/segmentos', data)
+    return response.data
+  },
+
+  update: async (id: number, data: any) => {
+    const response = await api.put(`/crm/segmentos/${id}`, data)
+    return response.data
+  },
+
+  delete: async (id: number) => {
+    const response = await api.delete(`/crm/segmentos/${id}`)
+    return response.data
+  },
+
+  getVotantes: async (id: number, params?: any) => {
+    const response = await api.get(`/crm/segmentos/${id}/votantes`, { params })
+    return response.data
+  },
+
+  addVotantes: async (id: number, votantes: number[]) => {
+    const response = await api.post(`/crm/segmentos/${id}/votantes`, { votantes })
+    return response.data
+  },
+
+  removeVotantes: async (id: number, votantes: number[]) => {
+    const response = await api.delete(`/crm/segmentos/${id}/votantes`, { data: { votantes } })
+    return response.data
+  },
+}
+
 // Eventos API
 export const eventosAPI = {
   getAll: async (params?: any) => {
