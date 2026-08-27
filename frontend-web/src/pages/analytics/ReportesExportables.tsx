@@ -15,9 +15,11 @@ import Badge from '@/components/ui/Badge'
 import Table from '@/components/ui/Table'
 import { reportesAPI } from '@/lib/api'
 import { ReporteExportable, ConfiguracionReporte } from '@/types/analytics'
+import { useActiveCampana } from '@/hooks/useActiveCampana'
 
 export default function ReportesExportables() {
   const navigate = useNavigate()
+  const { campanaId, hasCampana } = useActiveCampana()
   const [reportes, setReportes] = useState<ReporteExportable[]>([])
   const [loading, setLoading] = useState(true)
   const [showModal, setShowModal] = useState(false)
@@ -35,13 +37,18 @@ export default function ReportesExportables() {
   })
 
   useEffect(() => {
-    loadReportes()
-  }, [])
+    if (campanaId) {
+      loadReportes()
+    } else {
+      setLoading(false)
+    }
+  }, [campanaId])
 
   const loadReportes = async () => {
+    if (!campanaId) return
     try {
       setLoading(true)
-      const response = await reportesAPI.getAll()
+      const response = await reportesAPI.getAll(campanaId)
       setReportes(response.data || [])
     } catch (error) {
       console.error('Error cargando reportes:', error)
@@ -52,10 +59,11 @@ export default function ReportesExportables() {
 
   const handleGenerar = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (!campanaId) return
     setGenerando(true)
 
     try {
-      await reportesAPI.generar(formData)
+      await reportesAPI.generar(campanaId, formData)
       setShowModal(false)
       loadReportes()
       // Reset form
@@ -198,6 +206,16 @@ export default function ReportesExportables() {
       ),
     },
   ]
+
+  if (!hasCampana) {
+    return (
+      <MainLayout>
+        <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 rounded-lg p-6">
+          No tienes una campaña asignada, así que no hay datos disponibles para generar reportes.
+        </div>
+      </MainLayout>
+    )
+  }
 
   return (
     <MainLayout>

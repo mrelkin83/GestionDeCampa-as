@@ -474,18 +474,13 @@ export const analyticsAPI = {
 
 // Reportes API
 export const reportesAPI = {
-  getAll: async (params?: any) => {
-    const response = await api.get('/reportes', { params })
+  getAll: async (campanaId: number) => {
+    const response = await api.get('/reportes', { params: { campana_id: campanaId } })
     return response.data
   },
 
-  getById: async (id: number) => {
-    const response = await api.get(`/reportes/${id}`)
-    return response.data
-  },
-
-  generar: async (data: any) => {
-    const response = await api.post('/reportes/generar', data)
+  generar: async (campanaId: number, data: any) => {
+    const response = await api.post('/reportes/generar', { ...data, campana_id: campanaId })
     return response.data
   },
 
@@ -498,11 +493,6 @@ export const reportesAPI = {
 
   eliminar: async (id: number) => {
     const response = await api.delete(`/reportes/${id}`)
-    return response.data
-  },
-
-  plantillas: async () => {
-    const response = await api.get('/reportes/plantillas')
     return response.data
   },
 }

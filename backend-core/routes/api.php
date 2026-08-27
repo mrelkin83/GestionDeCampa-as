@@ -16,6 +16,7 @@ use App\Http\Controllers\Api\GastoController;
 use App\Http\Controllers\Api\SegmentoController;
 use App\Http\Controllers\Api\PrecountController;
 use App\Http\Controllers\Api\RoleController;
+use App\Http\Controllers\Api\ReporteController;
 
 /*
 |--------------------------------------------------------------------------
@@ -206,6 +207,13 @@ Route::middleware(['auth:sanctum', 'active'])->group(function () {
             ->middleware('role:admin_campana,super_admin');
         Route::post('/{id}/reportar-cne', [GastoController::class, 'reportarCNE'])
             ->middleware('role:admin_campana,super_admin');
+    });
+
+    Route::prefix('reportes')->group(function () {
+        Route::get('/', [ReporteController::class, 'index']);
+        Route::post('/generar', [ReporteController::class, 'generar']);
+        Route::get('/{id}/descargar', [ReporteController::class, 'descargar']);
+        Route::delete('/{id}', [ReporteController::class, 'destroy']);
     });
 
     /*
