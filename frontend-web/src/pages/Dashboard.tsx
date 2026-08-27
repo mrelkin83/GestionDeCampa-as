@@ -242,7 +242,7 @@ export default function Dashboard() {
                           <Clock className="w-3 h-3" />
                           {formatDate(evento.fecha_inicio)}
                         </span>
-                        {evento.ubicacion && <span>• {evento.ubicacion}</span>}
+                        {evento.ubicacion_nombre && <span>• {evento.ubicacion_nombre}</span>}
                       </div>
                     </div>
                   </div>

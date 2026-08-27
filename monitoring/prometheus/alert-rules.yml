@@ -1,0 +1,208 @@
+groups:
+  - name: backend-core-alerts
+    rules:
+      # API Health
+      - alert: BackendCoreDown
+        expr: up{job="backend-core"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          team: backend
+        annotations:
+          summary: "Backend Core API is down"
+          description: "Backend Core has been down for more than 1 minute"
+
+      # High Error Rate
+      - alert: BackendCoreHighErrorRate
+        expr: rate(http_requests_total{job="backend-core",status=~"5.."}[5m]) > 0.05
+        for: 2m
+        labels:
+          severity: warning
+          team: backend
+        annotations:
+          summary: "Backend Core high error rate"
+          description: "Error rate is above 5% for more than 2 minutes"
+
+      # High Response Time
+      - alert: BackendCoreSlowResponses
+        expr: histogram_quantile(0.95, rate(http_request_duration_seconds_bucket{job="backend-core"}[5m])) > 2
+        for: 5m
+        labels:
+          severity: warning
+          team: backend
+        annotations:
+          summary: "Backend Core slow response times"
+          description: "95th percentile response time is above 2 seconds"
+
+      # Database Connections
+      - alert: DatabaseHighConnections
+        expr: pg_stat_activity_count > 80
+        for: 5m
+        labels:
+          severity: warning
+          team: database
+        annotations:
+          summary: "PostgreSQL high connection count"
+          description: "PostgreSQL has more than 80 active connections"
+
+      # Queue Workers
+      - alert: QueueWorkersDown
+        expr: up{job="backend-core-workers"} == 0
+        for: 2m
+        labels:
+          severity: warning
+          team: backend
+        annotations:
+          summary: "Queue workers are down"
+          description: "Background job workers have been down for more than 2 minutes"
+
+      # Failed Jobs
+      - alert: HighFailedJobs
+        expr: rate(failed_jobs_total[5m]) > 1
+        for: 5m
+        labels:
+          severity: warning
+          team: backend
+        annotations:
+          summary: "High rate of failed jobs"
+          description: "More than 1 job failing per minute"
+
+  - name: websocket-alerts
+    rules:
+      # WebSocket Server Down
+      - alert: WebSocketServerDown
+        expr: up{job="backend-dia-d"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          team: websocket
+        annotations:
+          summary: "WebSocket server is down"
+          description: "Real-time WebSocket server has been down for more than 1 minute"
+
+      # WebSocket Connections
+      - alert: WebSocketLowConnections
+        expr: websocket_connections_total < 10
+        for: 5m
+        labels:
+          severity: warning
+          team: websocket
+        annotations:
+          summary: "WebSocket low connection count"
+          description: "WebSocket connections are unusually low"
+
+  - name: infrastructure-alerts
+    rules:
+      # High CPU Usage
+      - alert: HighCPUUsage
+        expr: 100 - (avg by(instance) (irate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 85
+        for: 5m
+        labels:
+          severity: warning
+          team: infrastructure
+        annotations:
+          summary: "High CPU usage"
+          description: "CPU usage is above 85% for more than 5 minutes"
+
+      # High Memory Usage
+      - alert: HighMemoryUsage
+        expr: (node_memory_MemTotal_bytes - node_memory_MemAvailable_bytes) / node_memory_MemTotal_bytes * 100 > 85
+        for: 5m
+        labels:
+          severity: warning
+          team: infrastructure
+        annotations:
+          summary: "High memory usage"
+          description: "Memory usage is above 85% for more than 5 minutes"
+
+      # Disk Space
+      - alert: LowDiskSpace
+        expr: (node_filesystem_avail_bytes / node_filesystem_size_bytes) < 0.1
+        for: 5m
+        labels:
+          severity: critical
+          team: infrastructure
+        annotations:
+          summary: "Low disk space"
+          description: "Less than 10% disk space remaining"
+
+      # Disk I/O
+      - alert: HighDiskIO
+        expr: rate(node_disk_io_time_seconds_total[5m]) > 0.8
+        for: 5m
+        labels:
+          severity: warning
+          team: infrastructure
+        annotations:
+          summary: "High disk I/O"
+          description: "Disk I/O utilization is above 80%"
+
+  - name: database-alerts
+    rules:
+      # PostgreSQL Down
+      - alert: PostgreSQLDown
+        expr: up{job="postgres"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          team: database
+        annotations:
+          summary: "PostgreSQL is down"
+          description: "PostgreSQL database has been down for more than 1 minute"
+
+      # Redis Down
+      - alert: RedisDown
+        expr: up{job="redis"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          team: database
+        annotations:
+          summary: "Redis is down"
+          description: "Redis cache has been down for more than 1 minute"
+
+      # Redis Memory
+      - alert: RedisHighMemory
+        expr: redis_memory_used_bytes / redis_memory_max_bytes > 0.8
+        for: 5m
+        labels:
+          severity: warning
+          team: database
+        annotations:
+          summary: "Redis high memory usage"
+          description: "Redis is using more than 80% of available memory"
+
+  - name: application-alerts
+    rules:
+      # Health Check Failures
+      - alert: HealthCheckFailed
+        expr: probe_success == 0
+        for: 2m
+        labels:
+          severity: critical
+          team: devops
+        annotations:
+          summary: "Health check failed"
+          description: "Health check for {{ $labels.instance }} has been failing"
+
+      # Certificate Expiry
+      - alert: CertificateExpiringSoon
+        expr: (ssl_cert_not_after - time()) / 86400 < 30
+        for: 1h
+        labels:
+          severity: warning
+          team: devops
+        annotations:
+          summary: "SSL certificate expiring soon"
+          description: "SSL certificate for {{ $labels.instance }} expires in less than 30 days"
+
+      # High Request Rate
+      - alert: HighRequestRate
+        expr: rate(http_requests_total[5m]) > 1000
+        for: 5m
+        labels:
+          severity: info
+          team: backend
+        annotations:
+          summary: "High request rate"
+          description: "Request rate is above 1000 requests per second"

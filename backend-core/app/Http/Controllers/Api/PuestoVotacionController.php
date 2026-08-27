@@ -97,9 +97,12 @@ class PuestoVotacionController extends Controller
         $radioKm = $request->get('radio_km', 5); // Default 5km
 
         // Query PostGIS para buscar puestos cercanos
+        // No se encadena ->select('*') aquí: PostgisTrait::newQuery() ya
+        // arma el select con ST_AsText(location) para que la respuesta
+        // traiga WKT legible en vez del binario WKB crudo; select('*')
+        // reemplazaba ese select y filtraba el binario a la API.
         $puestos = PuestoVotacion::with(['municipio', 'zonaElectoral'])
             ->whereNotNull('location')
-            ->select('*')
             ->selectRaw(
                 "ST_Distance(location::geography, ST_SetSRID(ST_MakePoint(?, ?), 4326)::geography) as distancia_metros",
                 [$longitud, $latitud]

@@ -219,7 +219,11 @@ class DonanteController extends Controller
             ], 422);
         }
 
-        $donante->update($request->all());
+        // Solo los campos validados arriba -pasar $request->all() permitía
+        // reescribir documento/nit/nombres/campana_id/total_donado/es_valido
+        // (todos fillable), saltándose la validación de identidad legal del
+        // donante y el flujo de auditoría de marcarInvalido().
+        $donante->update($validator->validated());
         $donante->load(['municipio.departamento']);
 
         return response()->json([
@@ -241,6 +245,14 @@ class DonanteController extends Controller
                 'success' => false,
                 'message' => 'Donante no encontrado',
             ], 404);
+        }
+
+        $user = $request->user();
+        if ($user->role->name !== 'super_admin' && !$user->hasAccessToCampana($donante->campana_id)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'No tiene acceso a este donante',
+            ], 403);
         }
 
         $validator = Validator::make($request->all(), [

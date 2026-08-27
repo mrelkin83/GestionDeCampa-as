@@ -6,8 +6,10 @@ import Table from '@/components/ui/Table'
 import Pagination from '@/components/ui/Pagination'
 import { mensajesAPI } from '@/lib/api'
 import { Mensaje, MensajePagination } from '@/types/comunicacion'
+import { useActiveCampana } from '@/hooks/useActiveCampana'
 
 export default function MensajesHistorial() {
+  const { campanaId } = useActiveCampana()
   const [mensajes, setMensajes] = useState<Mensaje[]>([])
   const [pagination, setPagination] = useState<MensajePagination | null>(null)
   const [loading, setLoading] = useState(true)
@@ -21,20 +23,23 @@ export default function MensajesHistorial() {
   })
 
   useEffect(() => {
-    fetchMensajes()
-  }, [filtros])
+    if (campanaId) {
+      fetchMensajes()
+    }
+  }, [filtros, campanaId])
 
   const fetchMensajes = async () => {
     try {
       setLoading(true)
       const response = await mensajesAPI.getAll({
+        campana_id: campanaId,
         canal: filtros.canal || undefined,
         estado: filtros.estado || undefined,
         search: filtros.search || undefined,
         page: filtros.page
       })
-      setMensajes(response.data || [])
-      setPagination(response)
+      setMensajes(response.data.data || [])
+      setPagination(response.data)
     } catch (error) {
       console.error('Error al cargar mensajes:', error)
     } finally {
@@ -60,7 +65,6 @@ export default function MensajesHistorial() {
       pendiente: { text: 'Pendiente', variant: 'default' as const },
       enviado: { text: 'Enviado', variant: 'info' as const },
       entregado: { text: 'Entregado', variant: 'success' as const },
-      leido: { text: 'Leído', variant: 'success' as const },
       fallido: { text: 'Fallido', variant: 'danger' as const },
     }
     const config = badges[estado as keyof typeof badges] || badges.pendiente
@@ -97,12 +101,12 @@ export default function MensajesHistorial() {
     {
       header: 'Destinatario',
       accessor: (row: Mensaje) => row.votante
-        ? `${row.votante.nombre} ${row.votante.apellido}`
+        ? (row.votante.nombre_completo || `${row.votante.primer_nombre} ${row.votante.primer_apellido}`)
         : row.destinatario,
     },
     {
       header: 'Campaña',
-      accessor: (row: Mensaje) => row.campana?.nombre || '-',
+      accessor: (row: Mensaje) => row.campana_comunicacion?.nombre || '-',
     },
     {
       header: 'Canal',
@@ -125,8 +129,8 @@ export default function MensajesHistorial() {
 
   const estadisticas = {
     total: mensajes.length,
-    enviados: mensajes.filter(m => ['enviado', 'entregado', 'leido'].includes(m.estado)).length,
-    entregados: mensajes.filter(m => ['entregado', 'leido'].includes(m.estado)).length,
+    enviados: mensajes.filter(m => ['enviado', 'entregado'].includes(m.estado)).length,
+    entregados: mensajes.filter(m => m.estado === 'entregado').length,
     fallidos: mensajes.filter(m => m.estado === 'fallido').length,
   }
 

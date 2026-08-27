@@ -2,47 +2,48 @@ import { useState, useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { Save, X, Loader } from 'lucide-react'
 import MainLayout from '@/components/layout/MainLayout'
-import { gastosAPI, categoriasGastoAPI } from '@/lib/api'
-import { Gasto, CategoriaGasto } from '@/types/gasto'
+import { gastosAPI } from '@/lib/api'
+import { Gasto } from '@/types/gasto'
+import { useActiveCampana } from '@/hooks/useActiveCampana'
+
+const CATEGORIAS: Array<{ value: Gasto['categoria']; label: string }> = [
+  { value: 'publicidad', label: 'Publicidad' },
+  { value: 'eventos', label: 'Eventos' },
+  { value: 'logistica', label: 'Logística' },
+  { value: 'personal', label: 'Personal' },
+  { value: 'materiales', label: 'Materiales' },
+  { value: 'transporte', label: 'Transporte' },
+  { value: 'servicios_profesionales', label: 'Servicios Profesionales' },
+  { value: 'otro', label: 'Otro' },
+]
 
 export default function GastoForm() {
   const { id } = useParams()
   const navigate = useNavigate()
   const isEdit = !!id
+  const { campanaId } = useActiveCampana()
 
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
-  const [categorias, setCategorias] = useState<CategoriaGasto[]>([])
 
   const [formData, setFormData] = useState<Partial<Gasto>>({
-    concepto: '',
     descripcion: '',
     monto: 0,
+    moneda: 'COP',
     fecha_gasto: new Date().toISOString().split('T')[0],
-    categoria_id: undefined,
+    categoria: 'otro',
+    subcategoria: '',
     proveedor: '',
     nit_proveedor: '',
     metodo_pago: 'transferencia',
     numero_factura: '',
-    estado: 'pendiente',
-    observaciones: '',
   })
 
   useEffect(() => {
-    loadCategorias()
     if (isEdit) {
       loadGasto()
     }
   }, [id])
-
-  const loadCategorias = async () => {
-    try {
-      const response = await categoriasGastoAPI.getAll({ activa: true })
-      setCategorias(response.data || [])
-    } catch (error) {
-      console.error('Error cargando categorías:', error)
-    }
-  }
 
   const loadGasto = async () => {
     try {
@@ -60,11 +61,7 @@ export default function GastoForm() {
     const { name, value, type } = e.target
     setFormData(prev => ({
       ...prev,
-      [name]: type === 'number'
-        ? (value ? Number(value) : 0)
-        : name.includes('_id')
-          ? (value ? Number(value) : undefined)
-          : value
+      [name]: type === 'number' ? (value ? Number(value) : 0) : value
     }))
   }
 
@@ -73,10 +70,11 @@ export default function GastoForm() {
     setSaving(true)
 
     try {
+      const payload = { ...formData, campana_id: campanaId }
       if (isEdit) {
-        await gastosAPI.update(Number(id), formData)
+        await gastosAPI.update(Number(id), payload)
       } else {
-        await gastosAPI.create(formData)
+        await gastosAPI.create(payload)
       }
       navigate('/gastos')
     } catch (error: any) {
@@ -127,34 +125,20 @@ export default function GastoForm() {
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Concepto *
+                  Descripción *
                 </label>
-                <input
-                  type="text"
-                  name="concepto"
-                  value={formData.concepto}
+                <textarea
+                  name="descripcion"
+                  value={formData.descripcion}
                   onChange={handleChange}
                   required
+                  rows={2}
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                   placeholder="Ej: Publicidad en redes sociales"
                 />
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Descripción
-                </label>
-                <textarea
-                  name="descripcion"
-                  value={formData.descripcion || ''}
-                  onChange={handleChange}
-                  rows={2}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                  placeholder="Detalles adicionales del gasto"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-3 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Monto *
@@ -178,6 +162,21 @@ export default function GastoForm() {
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Moneda *
+                  </label>
+                  <select
+                    name="moneda"
+                    value={formData.moneda}
+                    onChange={handleChange}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                  >
+                    <option value="COP">COP</option>
+                    <option value="USD">USD</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
                     Fecha del Gasto *
                   </label>
                   <input
@@ -192,24 +191,38 @@ export default function GastoForm() {
                 </div>
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Categoría *
-                </label>
-                <select
-                  name="categoria_id"
-                  value={formData.categoria_id || ''}
-                  onChange={handleChange}
-                  required
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                >
-                  <option value="">Selecciona una categoría</option>
-                  {categorias.map(cat => (
-                    <option key={cat.id} value={cat.id}>
-                      {cat.nombre}
-                    </option>
-                  ))}
-                </select>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Categoría *
+                  </label>
+                  <select
+                    name="categoria"
+                    value={formData.categoria}
+                    onChange={handleChange}
+                    required
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                  >
+                    {CATEGORIAS.map(cat => (
+                      <option key={cat.value} value={cat.value}>
+                        {cat.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Subcategoría
+                  </label>
+                  <input
+                    type="text"
+                    name="subcategoria"
+                    value={formData.subcategoria || ''}
+                    onChange={handleChange}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                    placeholder="Opcional"
+                  />
+                </div>
               </div>
             </div>
           </div>
@@ -263,7 +276,7 @@ export default function GastoForm() {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Método de Pago *
+                    Método de Pago
                   </label>
                   <select
                     name="metodo_pago"
@@ -273,10 +286,8 @@ export default function GastoForm() {
                   >
                     <option value="efectivo">Efectivo</option>
                     <option value="transferencia">Transferencia</option>
-                    <option value="tarjeta_credito">Tarjeta de Crédito</option>
-                    <option value="tarjeta_debito">Tarjeta de Débito</option>
                     <option value="cheque">Cheque</option>
-                    <option value="otro">Otro</option>
+                    <option value="tarjeta">Tarjeta</option>
                   </select>
                 </div>
 
@@ -295,18 +306,33 @@ export default function GastoForm() {
                 </div>
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Observaciones
-                </label>
-                <textarea
-                  name="observaciones"
-                  value={formData.observaciones || ''}
-                  onChange={handleChange}
-                  rows={3}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                  placeholder="Notas adicionales"
-                />
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Cuenta Bancaria
+                  </label>
+                  <input
+                    type="text"
+                    name="cuenta_bancaria"
+                    value={formData.cuenta_bancaria || ''}
+                    onChange={handleChange}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                    placeholder="Cuenta de origen del pago"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    No. Comprobante
+                  </label>
+                  <input
+                    type="text"
+                    name="numero_comprobante"
+                    value={formData.numero_comprobante || ''}
+                    onChange={handleChange}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                    placeholder="Número de comprobante"
+                  />
+                </div>
               </div>
             </div>
           </div>

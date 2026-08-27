@@ -1,0 +1,272 @@
+name: Backend Core CI/CD
+
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - 'backend-core/**'
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - 'backend-core/**'
+
+env:
+  PHP_VERSION: '8.2'
+  NODE_VERSION: '18'
+
+jobs:
+  test:
+    name: Test Backend
+    runs-on: ubuntu-latest
+    
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: test
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: preconteo_test
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+      
+      redis:
+        image: redis:7-alpine
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 6379:6379
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ env.PHP_VERSION }}
+          extensions: pdo_pgsql, redis, gd, zip
+          coverage: xdebug
+
+      - name: Copy .env
+        working-directory: ./backend-core
+        run: cp .env.testing.example .env.testing
+
+      - name: Install Dependencies
+        working-directory: ./backend-core
+        run: composer install --no-interaction --prefer-dist --optimize-autoloader
+
+      - name: Generate Key
+        working-directory: ./backend-core
+        run: php artisan key:generate --env=testing
+
+      - name: Run Migrations
+        working-directory: ./backend-core
+        env:
+          DB_CONNECTION: pgsql
+          DB_HOST: localhost
+          DB_PORT: 5432
+          DB_DATABASE: preconteo_test
+          DB_USERNAME: test
+          DB_PASSWORD: test
+          REDIS_HOST: localhost
+          REDIS_PORT: 6379
+        run: php artisan migrate --force --env=testing
+
+      - name: Run Tests
+        working-directory: ./backend-core
+        env:
+          DB_CONNECTION: pgsql
+          DB_HOST: localhost
+          DB_PORT: 5432
+          DB_DATABASE: preconteo_test
+          DB_USERNAME: test
+          DB_PASSWORD: test
+          REDIS_HOST: localhost
+          REDIS_PORT: 6379
+        run: php artisan test --coverage --min=75
+
+      - name: Upload Coverage
+        uses: codecov/codecov-action@v3
+        with:
+          files: ./backend-core/coverage.xml
+          flags: backend
+          name: backend-coverage
+
+  code-quality:
+    name: Code Quality
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ env.PHP_VERSION }}
+          extensions: pdo_pgsql, redis
+          tools: phpcs, phpstan
+
+      - name: Install Dependencies
+        working-directory: ./backend-core
+        run: composer install --no-interaction --prefer-dist
+
+      - name: Run PHP_CodeSniffer
+        working-directory: ./backend-core
+        run: phpcs --standard=PSR12 app/ tests/
+
+      - name: Run PHPStan
+        working-directory: ./backend-core
+        run: phpstan analyse app/ --level=8
+
+  build:
+    name: Build Production
+    runs-on: ubuntu-latest
+    needs: [test, code-quality]
+    if: github.ref == 'refs/heads/main'
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ env.PHP_VERSION }}
+          extensions: pdo_pgsql, redis
+
+      - name: Install Dependencies
+        working-directory: ./backend-core
+        run: composer install --no-interaction --prefer-dist --optimize-autoloader --no-dev
+
+      - name: Optimize Laravel
+        working-directory: ./backend-core
+        run: |
+          php artisan config:cache
+          php artisan route:cache
+          php artisan view:cache
+
+      - name: Create Deployment Package
+        working-directory: ./backend-core
+        run: |
+          tar -czf ../backend-core.tar.gz \
+            --exclude='.git' \
+            --exclude='tests' \
+            --exclude='node_modules' \
+            --exclude='storage/logs/*' \
+            --exclude='storage/framework/cache/*' \
+            --exclude='storage/framework/sessions/*' \
+            --exclude='storage/framework/views/*' \
+            .
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-core-production
+          path: backend-core.tar.gz
+          retention-days: 5
+
+  deploy-staging:
+    name: Deploy to Staging
+    runs-on: ubuntu-latest
+    needs: build
+    if: github.ref == 'refs/heads/main'
+    environment:
+      name: staging
+      url: https://api-staging.plataformaelectoral.com
+    
+    steps:
+      - name: Download Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: backend-core-production
+
+      - name: Setup SSH
+        uses: webfactory/ssh-agent@v0.8.0
+        with:
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+
+      - name: Deploy to Staging
+        env:
+          HOST: ${{ secrets.STAGING_HOST }}
+          USER: ${{ secrets.STAGING_USER }}
+        run: |
+          scp -o StrictHostKeyChecking=no backend-core.tar.gz $USER@$HOST:/tmp/
+          ssh -o StrictHostKeyChecking=no $USER@$HOST '
+            cd /var/www/preconteo-staging &&
+            sudo systemctl stop php8.2-fpm &&
+            tar -xzf /tmp/backend-core.tar.gz -C . --overwrite &&
+            php artisan migrate --force &&
+            php artisan config:cache &&
+            php artisan route:cache &&
+            php artisan view:cache &&
+            sudo systemctl start php8.2-fpm &&
+            sudo systemctl restart nginx &&
+            rm /tmp/backend-core.tar.gz
+          '
+
+      - name: Health Check
+        run: |
+          sleep 10
+          curl -f https://api-staging.plataformaelectoral.com/api/health || exit 1
+
+  deploy-production:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    needs: deploy-staging
+    if: github.ref == 'refs/heads/main'
+    environment:
+      name: production
+      url: https://api.plataformaelectoral.com
+    
+    steps:
+      - name: Download Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: backend-core-production
+
+      - name: Setup SSH
+        uses: webfactory/ssh-agent@v0.8.0
+        with:
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+
+      - name: Deploy to Production
+        env:
+          HOST: ${{ secrets.PRODUCTION_HOST }}
+          USER: ${{ secrets.PRODUCTION_USER }}
+        run: |
+          scp -o StrictHostKeyChecking=no backend-core.tar.gz $USER@$HOST:/tmp/
+          ssh -o StrictHostKeyChecking=no $USER@$HOST '
+            cd /var/www/preconteo &&
+            sudo systemctl stop php8.2-fpm &&
+            tar -xzf /tmp/backend-core.tar.gz -C . --overwrite &&
+            php artisan migrate --force &&
+            php artisan config:cache &&
+            php artisan route:cache &&
+            php artisan view:cache &&
+            php artisan queue:restart &&
+            sudo systemctl start php8.2-fpm &&
+            sudo systemctl restart nginx &&
+            rm /tmp/backend-core.tar.gz
+          '
+
+      - name: Health Check
+        run: |
+          sleep 10
+          curl -f https://api.plataformaelectoral.com/api/health || exit 1
+
+      - name: Notify Slack
+        if: always()
+        uses: 8398a7/action-slack@v3
+        with:
+          status: ${{ job.status }}
+          channel: '#deployments'
+          webhook_url: ${{ secrets.SLACK_WEBHOOK }}

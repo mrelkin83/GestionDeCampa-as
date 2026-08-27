@@ -1,11 +1,15 @@
 export interface Votante {
   id: number
-  cedula: string
-  nombre: string
-  apellido: string
+  campana_id: number
+  documento: string
+  tipo_documento: 'CC' | 'CE' | 'TI' | 'PAS'
+  primer_nombre: string
+  segundo_nombre?: string
+  primer_apellido: string
+  segundo_apellido?: string
+  genero?: 'M' | 'F' | 'O'
   fecha_nacimiento?: string
   edad?: number
-  genero?: 'M' | 'F' | 'O'
   email?: string
   telefono?: string
   celular?: string
@@ -17,44 +21,35 @@ export interface Votante {
   municipio_id?: number
   zona_electoral_id?: number
   puesto_votacion_id?: number
-  mesa?: string
+  mesa_id?: number
 
   // Scoring y segmentación
   scoring?: number
-  intencion_voto?: 'favorable' | 'indeciso' | 'desfavorable' | 'no_definido'
-  nivel_compromiso?: 'alto' | 'medio' | 'bajo'
+  probabilidad_voto?: number
+  intencion_voto?: 'a_favor' | 'en_contra' | 'indeciso' | 'sin_definir'
+  es_lider?: boolean
 
   // Metadata
   observaciones?: string
   tags?: string[]
-  ultima_interaccion?: string
-  total_contactos?: number
+  ultimo_contacto?: string
+  numero_contactos?: number
+  estado?: string
 
-  // Timestamps
+  nombre_completo?: string
+
   created_at?: string
   updated_at?: string
 
-  // Relaciones (opcional, cuando vienen del backend)
-  departamento?: {
-    id: number
-    nombre: string
-  }
-  municipio?: {
-    id: number
-    nombre: string
-  }
+  departamento?: { id: number; nombre: string }
+  municipio?: { id: number; nombre: string }
 }
 
 export interface VotanteFilters {
-  search?: string
-  departamento_id?: number
-  municipio_id?: number
-  genero?: string
   intencion_voto?: string
   scoring_min?: number
-  scoring_max?: number
-  edad_min?: number
-  edad_max?: number
+  municipio_id?: number
+  search?: string
 }
 
 export interface VotantePagination {
@@ -63,8 +58,20 @@ export interface VotantePagination {
   per_page: number
   current_page: number
   last_page: number
-  from: number
-  to: number
+}
+
+export interface Contacto {
+  id: number
+  campana_id: number
+  votante_id: number
+  user_id: number
+  tipo: 'llamada' | 'visita' | 'sms' | 'email' | 'whatsapp' | 'evento'
+  resultado: 'exitoso' | 'sin_respuesta' | 'rechazado' | 'pendiente'
+  notas?: string
+  intencion_voto_antes?: string
+  intencion_voto_despues?: string
+  created_at: string
+  user?: { id: number; first_name: string; last_name: string }
 }
 
 export interface Segmento {

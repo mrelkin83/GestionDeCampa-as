@@ -10,9 +10,11 @@ import FiltrosAvanzados from '@/components/votantes/FiltrosAvanzados'
 import { votantesAPI, departamentosAPI } from '@/lib/api'
 import { Votante, VotantePagination, VotanteFilters } from '@/types/votante'
 import { exportToCSV } from '@/lib/export'
+import { useActiveCampana } from '@/hooks/useActiveCampana'
 
 export default function VotantesListado() {
   const navigate = useNavigate()
+  const { campanaId } = useActiveCampana()
   const [data, setData] = useState<VotantePagination | null>(null)
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
@@ -27,8 +29,10 @@ export default function VotantesListado() {
   }, [])
 
   useEffect(() => {
-    fetchVotantes()
-  }, [currentPage, search, filters])
+    if (campanaId) {
+      fetchVotantes()
+    }
+  }, [currentPage, search, filters, campanaId])
 
   const loadDepartamentos = async () => {
     try {
@@ -52,6 +56,7 @@ export default function VotantesListado() {
     try {
       setLoading(true)
       const response = await votantesAPI.getAll({
+        campana_id: campanaId,
         page: currentPage,
         search: search || undefined,
         per_page: 15,
@@ -80,16 +85,16 @@ export default function VotantesListado() {
     if (!data?.data || data.data.length === 0) return
 
     const exportData = data.data.map(votante => ({
-      Cédula: votante.cedula,
-      Nombre: votante.nombre,
-      Apellido: votante.apellido,
+      Documento: votante.documento,
+      Nombre: votante.primer_nombre,
+      Apellido: votante.primer_apellido,
       Teléfono: votante.celular || votante.telefono || '-',
       Email: votante.email || '-',
       Municipio: votante.municipio?.nombre || '-',
       Departamento: votante.departamento?.nombre || '-',
       'Intención de Voto': votante.intencion_voto || '-',
       Scoring: votante.scoring || 0,
-      Contactos: votante.total_contactos || 0
+      Contactos: votante.numero_contactos || 0
     }))
 
     exportToCSV(exportData, `votantes-${new Date().toISOString().split('T')[0]}`)
@@ -104,24 +109,24 @@ export default function VotantesListado() {
 
   const getIntencionVotoBadge = (intencion?: string) => {
     const labels = {
-      favorable: { text: 'Favorable', variant: 'success' as const },
+      a_favor: { text: 'A favor', variant: 'success' as const },
       indeciso: { text: 'Indeciso', variant: 'warning' as const },
-      desfavorable: { text: 'Desfavorable', variant: 'danger' as const },
-      no_definido: { text: 'No definido', variant: 'default' as const },
+      en_contra: { text: 'En contra', variant: 'danger' as const },
+      sin_definir: { text: 'Sin definir', variant: 'default' as const },
     }
-    const config = labels[intencion as keyof typeof labels] || labels.no_definido
+    const config = labels[intencion as keyof typeof labels] || labels.sin_definir
     return <Badge variant={config.variant}>{config.text}</Badge>
   }
 
   const columns = [
     {
-      header: 'Cédula',
-      accessor: 'cedula' as keyof Votante,
+      header: 'Documento',
+      accessor: 'documento' as keyof Votante,
       className: 'font-medium text-gray-900'
     },
     {
       header: 'Nombre Completo',
-      accessor: (row: Votante) => `${row.nombre} ${row.apellido}`,
+      accessor: (row: Votante) => row.nombre_completo || `${row.primer_nombre} ${row.primer_apellido}`,
     },
     {
       header: 'Teléfono',
@@ -142,7 +147,7 @@ export default function VotantesListado() {
     {
       header: 'Contactos',
       accessor: (row: Votante) => (
-        <span className="text-gray-600">{row.total_contactos || 0}</span>
+        <span className="text-gray-600">{row.numero_contactos || 0}</span>
       ),
     },
   ]
@@ -206,7 +211,7 @@ export default function VotantesListado() {
                   type="text"
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
-                  placeholder="Buscar por cédula, nombre, teléfono..."
+                  placeholder="Buscar por documento, nombre, teléfono..."
                   className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                 />
               </div>

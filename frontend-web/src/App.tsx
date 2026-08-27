@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import { AuthProvider } from './contexts/AuthContext'
 import { ToastProvider } from './contexts/ToastContext'
 import ProtectedRoute from './components/ProtectedRoute'
+import RequireRole from './components/RequireRole'
 import ErrorBoundary from './components/ErrorBoundary'
 
 // Loading component
@@ -23,6 +24,9 @@ import Dashboard from './pages/Dashboard'
 import NotFound from './pages/NotFound'
 
 // Lazy loaded modules
+// Dashboard Día D
+const DashboardDiaD = lazy(() => import('./pages/dashboard/DashboardDiaD'))
+
 // Votantes
 const VotantesListado = lazy(() => import('./pages/votantes/VotantesListado'))
 const VotanteForm = lazy(() => import('./pages/votantes/VotanteForm'))
@@ -50,12 +54,10 @@ const DonacionesListado = lazy(() => import('./pages/donaciones/DonacionesListad
 const DonacionForm = lazy(() => import('./pages/donaciones/DonacionForm'))
 const DonantesListado = lazy(() => import('./pages/donaciones/DonantesListado'))
 const DonanteForm = lazy(() => import('./pages/donaciones/DonanteForm'))
-const RecibosListado = lazy(() => import('./pages/donaciones/RecibosListado'))
 
 // Gastos
 const GastosListado = lazy(() => import('./pages/gastos/GastosListado'))
 const GastoForm = lazy(() => import('./pages/gastos/GastoForm'))
-const PresupuestoPanel = lazy(() => import('./pages/gastos/PresupuestoPanel'))
 
 // Analytics
 const AnalyticsDashboard = lazy(() => import('./pages/analytics/AnalyticsDashboard'))
@@ -77,7 +79,18 @@ function App() {
           <Routes>
             {/* Public routes */}
             <Route path="/login" element={<Login />} />
-            <Route path="/register" element={<Register />} />
+
+            {/* Crear usuario: solo super_admin, requiere sesión */}
+            <Route
+              path="/usuarios/nuevo"
+              element={
+                <ProtectedRoute>
+                  <RequireRole roles={['super_admin']}>
+                    <Register />
+                  </RequireRole>
+                </ProtectedRoute>
+              }
+            />
 
             {/* Protected routes - Dashboard */}
             <Route
@@ -85,6 +98,16 @@ function App() {
               element={
                 <ProtectedRoute>
                   <Dashboard />
+                </ProtectedRoute>
+              }
+            />
+
+            {/* Protected routes - Dashboard Día D (Preconteo) */}
+            <Route
+              path="/dashboard/dia-d"
+              element={
+                <ProtectedRoute>
+                  <DashboardDiaD />
                 </ProtectedRoute>
               }
             />
@@ -282,15 +305,6 @@ function App() {
               </ProtectedRoute>
             }
           />
-          <Route
-            path="/donaciones/recibos"
-            element={
-              <ProtectedRoute>
-                <RecibosListado />
-              </ProtectedRoute>
-            }
-          />
-
           {/* Protected routes - Gastos */}
           <Route
             path="/gastos"
@@ -308,15 +322,6 @@ function App() {
               </ProtectedRoute>
             }
           />
-          <Route
-            path="/gastos/presupuesto"
-            element={
-              <ProtectedRoute>
-                <PresupuestoPanel />
-              </ProtectedRoute>
-            }
-          />
-
           {/* Protected routes - Analytics */}
           <Route
             path="/analytics"

@@ -36,11 +36,15 @@ export class ActaProcessor {
       // For now, simulate processing
       await this.simulateOcrProcessing(imageUrl);
 
-      // Update with OCR results (placeholder)
-      acta.estado = 'validada';
+      // OCR real todavía no está implementado (ver TODO arriba): el resultado
+      // es simulado y NO debe autovalidar el acta. Solo un coordinador humano
+      // puede pasar a 'validada' (ver validada_por_id/validada_at), igual que
+      // en el flujo equivalente de backend-core (PrecountController::validarActa).
+      acta.estado = 'pendiente';
       acta.datos_ocr = {
         confidence: 0.95,
         processed_at: new Date(),
+        simulated: true,
         // Add OCR extracted data here
       };
       acta.confianza_ocr = 0.95;
@@ -60,6 +64,7 @@ export class ActaProcessor {
   }
 
   private async simulateOcrProcessing(imageUrl: string): Promise<void> {
+    this.logger.debug(`Simulating OCR processing for ${imageUrl}`);
     // Simulate processing time
     return new Promise((resolve) => setTimeout(resolve, 2000));
   }

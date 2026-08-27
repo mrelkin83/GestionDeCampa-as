@@ -1,0 +1,210 @@
+name: Backend Día D (NestJS) CI/CD
+
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - 'backend-dia-d/**'
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - 'backend-dia-d/**'
+
+env:
+  NODE_VERSION: '18'
+
+jobs:
+  test:
+    name: Test NestJS
+    runs-on: ubuntu-latest
+    
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: test
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: preconteo_test
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+      
+      redis:
+        image: redis:7-alpine
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 6379:6379
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: backend-dia-d/package-lock.json
+
+      - name: Install Dependencies
+        working-directory: ./backend-dia-d
+        run: npm ci
+
+      - name: Run Linter
+        working-directory: ./backend-dia-d
+        run: npm run lint
+
+      - name: Run Tests
+        working-directory: ./backend-dia-d
+        env:
+          DATABASE_URL: postgres://test:test@localhost:5432/preconteo_test
+          REDIS_URL: redis://localhost:6379
+          JWT_SECRET: test-secret-key
+        run: npm run test:cov -- --coverageThreshold='{"global":{"branches":70,"functions":70,"lines":70,"statements":70}}'
+
+      - name: Upload Coverage
+        uses: codecov/codecov-action@v3
+        with:
+          files: ./backend-dia-d/coverage/lcov.info
+          flags: websocket
+          name: websocket-coverage
+
+  build:
+    name: Build Production
+    runs-on: ubuntu-latest
+    needs: test
+    if: github.ref == 'refs/heads/main'
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: backend-dia-d/package-lock.json
+
+      - name: Install Dependencies
+        working-directory: ./backend-dia-d
+        run: npm ci
+
+      - name: Build
+        working-directory: ./backend-dia-d
+        run: npm run build
+
+      - name: Create Deployment Package
+        run: |
+          tar -czf backend-dia-d.tar.gz \
+            -C backend-dia-d \
+            dist/ \
+            package.json \
+            package-lock.json \
+            .env.example \
+            --exclude='src' \
+            --exclude='test' \
+            --exclude='node_modules'
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-dia-d-production
+          path: backend-dia-d.tar.gz
+          retention-days: 5
+
+  deploy-staging:
+    name: Deploy to Staging
+    runs-on: ubuntu-latest
+    needs: build
+    if: github.ref == 'refs/heads/main'
+    environment:
+      name: staging
+      url: https://ws-staging.plataformaelectoral.com
+    
+    steps:
+      - name: Download Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: backend-dia-d-production
+
+      - name: Setup SSH
+        uses: webfactory/ssh-agent@v0.8.0
+        with:
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+
+      - name: Deploy to Staging
+        env:
+          HOST: ${{ secrets.STAGING_HOST }}
+          USER: ${{ secrets.STAGING_USER }}
+        run: |
+          scp -o StrictHostKeyChecking=no backend-dia-d.tar.gz $USER@$HOST:/tmp/
+          ssh -o StrictHostKeyChecking=no $USER@$HOST '
+            cd /var/www/ws-staging &&
+            sudo systemctl stop preconteo-ws &&
+            tar -xzf /tmp/backend-dia-d.tar.gz -C . --overwrite &&
+            npm ci --production &&
+            sudo systemctl start preconteo-ws &&
+            rm /tmp/backend-dia-d.tar.gz
+          '
+
+      - name: Health Check
+        run: |
+          sleep 5
+          curl -f https://ws-staging.plataformaelectoral.com/health || exit 1
+
+  deploy-production:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    needs: deploy-staging
+    if: github.ref == 'refs/heads/main'
+    environment:
+      name: production
+      url: https://ws.plataformaelectoral.com
+    
+    steps:
+      - name: Download Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: backend-dia-d-production
+
+      - name: Setup SSH
+        uses: webfactory/ssh-agent@v0.8.0
+        with:
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+
+      - name: Deploy to Production
+        env:
+          HOST: ${{ secrets.PRODUCTION_HOST }}
+          USER: ${{ secrets.PRODUCTION_USER }}
+        run: |
+          scp -o StrictHostKeyChecking=no backend-dia-d.tar.gz $USER@$HOST:/tmp/
+          ssh -o StrictHostKeyChecking=no $USER@$HOST '
+            cd /var/www/ws &&
+            sudo systemctl stop preconteo-ws &&
+            tar -xzf /tmp/backend-dia-d.tar.gz -C . --overwrite &&
+            npm ci --production &&
+            sudo systemctl start preconteo-ws &&
+            rm /tmp/backend-dia-d.tar.gz
+          '
+
+      - name: Health Check
+        run: |
+          sleep 5
+          curl -f https://ws.plataformaelectoral.com/health || exit 1
+
+      - name: Notify Slack
+        if: always()
+        uses: 8398a7/action-slack@v3
+        with:
+          status: ${{ job.status }}
+          channel: '#deployments'
+          webhook_url: ${{ secrets.SLACK_WEBHOOK }}

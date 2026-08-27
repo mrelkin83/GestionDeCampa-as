@@ -1,83 +1,52 @@
 import { useState, useEffect } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import { Save, X, Loader, Plus, AlertCircle } from 'lucide-react'
 import MainLayout from '@/components/layout/MainLayout'
 import { donacionesAPI, donantesAPI } from '@/lib/api'
 import { Donacion, Donante } from '@/types/donacion'
+import { useActiveCampana } from '@/hooks/useActiveCampana'
 
-const LIMITE_LEGAL_PERSONA = 50000000 // 50 millones de pesos
-const LIMITE_LEGAL_EMPRESA = 200000000 // 200 millones
-
+// No existe (ni existió nunca) una ruta de edición para donaciones: el
+// backend no tiene PUT /donaciones/{id} -son inmutables una vez creadas,
+// igual que los gastos, para preservar el rastro de auditoría financiera.
+// Solo se pueden confirmar/rechazar/reportar al CNE (ver DonacionesListado).
 export default function DonacionForm() {
-  const { id } = useParams()
   const navigate = useNavigate()
-  const isEdit = !!id
+  const { campanaId } = useActiveCampana()
 
-  const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
   const [donantes, setDonantes] = useState<Donante[]>([])
   const [donanteSeleccionado, setDonanteSeleccionado] = useState<Donante | null>(null)
-  const [excedeLimite, setExcedeLimite] = useState(false)
 
   const [formData, setFormData] = useState<Partial<Donacion>>({
     donante_id: undefined,
     monto: 0,
+    moneda: 'COP',
+    tipo: 'efectivo',
     fecha_donacion: new Date().toISOString().split('T')[0],
-    metodo_pago: 'efectivo',
-    referencia: '',
-    banco: '',
-    estado: 'pendiente',
-    observaciones: '',
-    requiere_reporte: false,
-    verificada: false,
+    numero_comprobante: '',
+    notas: '',
   })
 
   useEffect(() => {
-    loadDonantes()
-    if (isEdit) {
-      loadDonacion()
+    if (campanaId) {
+      loadDonantes()
     }
-  }, [id])
+  }, [campanaId])
 
   useEffect(() => {
     if (formData.donante_id) {
       const donante = donantes.find(d => d.id === formData.donante_id)
       setDonanteSeleccionado(donante || null)
-
-      // Verificar límites legales
-      if (donante && formData.monto && formData.monto > 0) {
-        const montoTotal = (donante.monto_total_donado || 0) + (formData.monto || 0)
-        const limite = donante.tipo === 'persona' ? LIMITE_LEGAL_PERSONA : LIMITE_LEGAL_EMPRESA
-
-        if (montoTotal > limite) {
-          setExcedeLimite(true)
-          setFormData(prev => ({ ...prev, requiere_reporte: true }))
-        } else {
-          setExcedeLimite(false)
-          setFormData(prev => ({ ...prev, requiere_reporte: false }))
-        }
-      }
     }
-  }, [formData.donante_id, formData.monto, donantes])
+  }, [formData.donante_id, donantes])
 
   const loadDonantes = async () => {
     try {
-      const response = await donantesAPI.getAll()
+      const response = await donantesAPI.getAll({ campana_id: campanaId })
       setDonantes(response.data || [])
     } catch (error) {
       console.error('Error cargando donantes:', error)
-    }
-  }
-
-  const loadDonacion = async () => {
-    try {
-      setLoading(true)
-      const response = await donacionesAPI.getById(Number(id))
-      setFormData(response.data)
-    } catch (error) {
-      console.error('Error cargando donación:', error)
-    } finally {
-      setLoading(false)
     }
   }
 
@@ -87,11 +56,9 @@ export default function DonacionForm() {
       ...prev,
       [name]: type === 'number'
         ? (value ? Number(value) : 0)
-        : name.includes('_id')
+        : name === 'donante_id'
           ? (value ? Number(value) : undefined)
-          : type === 'checkbox'
-            ? (e.target as HTMLInputElement).checked
-            : value
+          : value
     }))
   }
 
@@ -111,11 +78,7 @@ export default function DonacionForm() {
     setSaving(true)
 
     try {
-      if (isEdit) {
-        await donacionesAPI.update(Number(id), formData)
-      } else {
-        await donacionesAPI.create(formData)
-      }
+      await donacionesAPI.create({ ...formData, campana_id: campanaId })
       navigate('/donaciones')
     } catch (error: any) {
       console.error('Error guardando donación:', error)
@@ -133,23 +96,16 @@ export default function DonacionForm() {
     }).format(monto)
   }
 
-  if (loading) {
-    return (
-      <MainLayout>
-        <div className="flex justify-center items-center h-96">
-          <Loader className="w-8 h-8 animate-spin text-primary-600" />
-        </div>
-      </MainLayout>
-    )
-  }
+  const nombreDonante = (donante: Donante) =>
+    donante.tipo === 'persona_natural'
+      ? `${donante.nombres} ${donante.apellidos || ''}`
+      : donante.razon_social
 
   return (
     <MainLayout>
       <div className="max-w-4xl mx-auto">
         <div className="mb-6">
-          <h1 className="text-3xl font-bold text-gray-900">
-            {isEdit ? 'Editar Donación' : 'Registrar Donación'}
-          </h1>
+          <h1 className="text-3xl font-bold text-gray-900">Registrar Donación</h1>
           <p className="text-gray-600 mt-1">
             Completa la información de la donación recibida
           </p>
@@ -186,7 +142,7 @@ export default function DonacionForm() {
                 <option value="">Selecciona un donante</option>
                 {donantes.map(donante => (
                   <option key={donante.id} value={donante.id}>
-                    {donante.nombre} {donante.apellido || donante.razon_social || ''} - {donante.numero_documento}
+                    {nombreDonante(donante)} - {donante.documento || donante.nit}
                   </option>
                 ))}
               </select>
@@ -197,26 +153,26 @@ export default function DonacionForm() {
                 <div className="grid grid-cols-2 gap-3 text-sm">
                   <div>
                     <p className="text-gray-600">Tipo:</p>
-                    <p className="font-medium text-gray-900 capitalize">
-                      {donanteSeleccionado.tipo}
+                    <p className="font-medium text-gray-900">
+                      {donanteSeleccionado.tipo === 'persona_natural' ? 'Persona Natural' : 'Empresa'}
                     </p>
                   </div>
                   <div>
                     <p className="text-gray-600">Documento:</p>
                     <p className="font-medium text-gray-900">
-                      {donanteSeleccionado.numero_documento}
+                      {donanteSeleccionado.documento || donanteSeleccionado.nit}
                     </p>
                   </div>
                   <div>
                     <p className="text-gray-600">Total Donado:</p>
                     <p className="font-medium text-gray-900">
-                      {formatMonto(donanteSeleccionado.monto_total_donado || 0)}
+                      {formatMonto(donanteSeleccionado.total_donado || 0)}
                     </p>
                   </div>
                   <div>
                     <p className="text-gray-600">Donaciones:</p>
                     <p className="font-medium text-gray-900">
-                      {donanteSeleccionado.total_donaciones || 0}
+                      {donanteSeleccionado.numero_donaciones || 0}
                     </p>
                   </div>
                 </div>
@@ -231,7 +187,7 @@ export default function DonacionForm() {
             </h2>
 
             <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-3 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Monto *
@@ -256,6 +212,21 @@ export default function DonacionForm() {
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Moneda *
+                  </label>
+                  <select
+                    name="moneda"
+                    value={formData.moneda}
+                    onChange={handleChange}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                  >
+                    <option value="COP">COP</option>
+                    <option value="USD">USD</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
                     Fecha de Donación *
                   </label>
                   <input
@@ -270,100 +241,70 @@ export default function DonacionForm() {
                 </div>
               </div>
 
-              {excedeLimite && (
-                <div className="p-4 bg-orange-50 border border-orange-200 rounded-lg flex gap-3">
-                  <AlertCircle className="w-5 h-5 text-orange-600 flex-shrink-0 mt-0.5" />
-                  <div>
-                    <p className="text-sm font-medium text-orange-900">
-                      Advertencia: Límite Legal Excedido
-                    </p>
-                    <p className="text-sm text-orange-700 mt-1">
-                      Esta donación excede el límite legal para {donanteSeleccionado?.tipo === 'persona' ? 'personas' : 'empresas'}
-                      ({formatMonto(donanteSeleccionado?.tipo === 'persona' ? LIMITE_LEGAL_PERSONA : LIMITE_LEGAL_EMPRESA)}).
-                      Será marcada automáticamente para reporte de compliance.
-                    </p>
-                  </div>
-                </div>
-              )}
+              <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg flex gap-3">
+                <AlertCircle className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
+                <p className="text-sm text-blue-800">
+                  El sistema valida automáticamente el tope legal individual del donante al guardar. Si lo excede, la donación quedará marcada para validación por un coordinador.
+                </p>
+              </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Método de Pago *
+                    Tipo de Donación *
                   </label>
                   <select
-                    name="metodo_pago"
-                    value={formData.metodo_pago}
+                    name="tipo"
+                    value={formData.tipo}
                     onChange={handleChange}
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                   >
                     <option value="efectivo">Efectivo</option>
                     <option value="transferencia">Transferencia</option>
-                    <option value="tarjeta_credito">Tarjeta de Crédito</option>
-                    <option value="tarjeta_debito">Tarjeta de Débito</option>
                     <option value="cheque">Cheque</option>
-                    <option value="otro">Otro</option>
+                    <option value="especie">Especie</option>
+                    <option value="servicio">Servicio</option>
                   </select>
                 </div>
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Estado
+                    No. Comprobante
                   </label>
-                  <select
-                    name="estado"
-                    value={formData.estado}
+                  <input
+                    type="text"
+                    name="numero_comprobante"
+                    value={formData.numero_comprobante || ''}
                     onChange={handleChange}
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                  >
-                    <option value="pendiente">Pendiente</option>
-                    <option value="confirmada">Confirmada</option>
-                    <option value="rechazada">Rechazada</option>
-                  </select>
+                    placeholder="Número de comprobante"
+                  />
                 </div>
               </div>
 
-              {formData.metodo_pago !== 'efectivo' && (
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Referencia / No. Transacción
-                    </label>
-                    <input
-                      type="text"
-                      name="referencia"
-                      value={formData.referencia || ''}
-                      onChange={handleChange}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                      placeholder="Número de referencia"
-                    />
-                  </div>
-
-                  {(formData.metodo_pago === 'transferencia' || formData.metodo_pago === 'cheque') && (
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Banco
-                      </label>
-                      <input
-                        type="text"
-                        name="banco"
-                        value={formData.banco || ''}
-                        onChange={handleChange}
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                        placeholder="Nombre del banco"
-                      />
-                    </div>
-                  )}
+              {(formData.tipo === 'especie' || formData.tipo === 'servicio') && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Descripción de la Especie/Servicio
+                  </label>
+                  <input
+                    type="text"
+                    name="descripcion_especie"
+                    value={formData.descripcion_especie || ''}
+                    onChange={handleChange}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                    placeholder="Ej: Alquiler de sonido para evento"
+                  />
                 </div>
               )}
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Observaciones
+                  Notas
                 </label>
                 <textarea
-                  name="observaciones"
-                  value={formData.observaciones || ''}
+                  name="notas"
+                  value={formData.notas || ''}
                   onChange={handleChange}
                   rows={3}
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
@@ -397,7 +338,7 @@ export default function DonacionForm() {
                 ) : (
                   <>
                     <Save className="w-5 h-5" />
-                    <span>{isEdit ? 'Actualizar' : 'Registrar Donación'}</span>
+                    <span>Registrar Donación</span>
                   </>
                 )}
               </button>

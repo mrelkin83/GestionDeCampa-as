@@ -79,13 +79,13 @@ export default function SegmentoDetalle() {
 
   const columns = [
     {
-      header: 'Cédula',
-      accessor: 'cedula' as keyof Votante,
+      header: 'Documento',
+      accessor: 'documento' as keyof Votante,
       className: 'font-medium text-gray-900'
     },
     {
       header: 'Nombre Completo',
-      accessor: (row: Votante) => `${row.nombre} ${row.apellido}`,
+      accessor: (row: Votante) => row.nombre_completo || `${row.primer_nombre} ${row.primer_apellido}`,
     },
     {
       header: 'Teléfono',

@@ -4,33 +4,30 @@ import { Save, X, Loader } from 'lucide-react'
 import MainLayout from '@/components/layout/MainLayout'
 import { donantesAPI } from '@/lib/api'
 import { Donante } from '@/types/donacion'
+import { useActiveCampana } from '@/hooks/useActiveCampana'
 
 export default function DonanteForm() {
   const { id } = useParams()
   const navigate = useNavigate()
   const isEdit = !!id
+  const { campanaId } = useActiveCampana()
 
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
 
   const [formData, setFormData] = useState<Partial<Donante>>({
-    tipo: 'persona',
-    nombre: '',
-    apellido: '',
+    tipo: 'persona_natural',
+    nombres: '',
+    apellidos: '',
     razon_social: '',
-    tipo_documento: 'cedula',
-    numero_documento: '',
+    nit: '',
+    representante_legal: '',
+    tipo_documento: 'CC',
+    documento: '',
     email: '',
     telefono: '',
-    celular: '',
     direccion: '',
-    ciudad: '',
-    departamento: '',
-    pais: 'Colombia',
-    ocupacion: '',
-    empresa: '',
-    sector_economico: '',
-    es_anonimo: false,
+    acepta_publicacion: false,
   })
 
   useEffect(() => {
@@ -60,11 +57,11 @@ export default function DonanteForm() {
   }
 
   const handleTipoChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const tipo = e.target.value as 'persona' | 'empresa'
+    const tipo = e.target.value as 'persona_natural' | 'persona_juridica'
     setFormData(prev => ({
       ...prev,
       tipo,
-      tipo_documento: tipo === 'persona' ? 'cedula' : 'nit'
+      tipo_documento: tipo === 'persona_natural' ? 'CC' : undefined
     }))
   }
 
@@ -73,10 +70,11 @@ export default function DonanteForm() {
     setSaving(true)
 
     try {
+      const payload = { ...formData, campana_id: campanaId }
       if (isEdit) {
-        await donantesAPI.update(Number(id), formData)
+        await donantesAPI.update(Number(id), payload)
       } else {
-        await donantesAPI.create(formData)
+        await donantesAPI.create(payload)
       }
       navigate('/donaciones/donantes')
     } catch (error: any) {
@@ -126,21 +124,21 @@ export default function DonanteForm() {
                   onChange={handleTipoChange}
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                 >
-                  <option value="persona">Persona Natural</option>
-                  <option value="empresa">Empresa / Persona Jurídica</option>
+                  <option value="persona_natural">Persona Natural</option>
+                  <option value="persona_juridica">Empresa / Persona Jurídica</option>
                 </select>
               </div>
               <div className="flex items-end">
                 <label className="flex items-center gap-2">
                   <input
                     type="checkbox"
-                    name="es_anonimo"
-                    checked={formData.es_anonimo}
+                    name="acepta_publicacion"
+                    checked={formData.acepta_publicacion || false}
                     onChange={handleChange}
                     className="w-4 h-4 text-primary-600 border-gray-300 rounded focus:ring-primary-500"
                   />
                   <span className="text-sm font-medium text-gray-700">
-                    Donación Anónima
+                    Acepta que su donación se haga pública
                   </span>
                 </label>
               </div>
@@ -150,141 +148,120 @@ export default function DonanteForm() {
           {/* Información Personal / Empresa */}
           <div className="bg-white rounded-lg shadow p-6">
             <h2 className="text-lg font-semibold text-gray-900 mb-4">
-              {formData.tipo === 'persona' ? 'Información Personal' : 'Información de la Empresa'}
+              {formData.tipo === 'persona_natural' ? 'Información Personal' : 'Información de la Empresa'}
             </h2>
             <div className="space-y-4">
-              {formData.tipo === 'persona' ? (
-                <div className="grid grid-cols-2 gap-4">
+              {formData.tipo === 'persona_natural' ? (
+                <>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Nombres *
+                      </label>
+                      <input
+                        type="text"
+                        name="nombres"
+                        value={formData.nombres || ''}
+                        onChange={handleChange}
+                        required
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                        placeholder="Nombres"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Apellidos *
+                      </label>
+                      <input
+                        type="text"
+                        name="apellidos"
+                        value={formData.apellidos || ''}
+                        onChange={handleChange}
+                        required
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                        placeholder="Apellidos"
+                      />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Tipo de Documento *
+                      </label>
+                      <select
+                        name="tipo_documento"
+                        value={formData.tipo_documento}
+                        onChange={handleChange}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                      >
+                        <option value="CC">Cédula de Ciudadanía</option>
+                        <option value="CE">Cédula de Extranjería</option>
+                        <option value="PA">Pasaporte</option>
+                        <option value="TI">Tarjeta de Identidad</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Número de Documento *
+                      </label>
+                      <input
+                        type="text"
+                        name="documento"
+                        value={formData.documento || ''}
+                        onChange={handleChange}
+                        required
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                        placeholder="1234567890"
+                      />
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Nombre *
+                      Razón Social *
                     </label>
                     <input
                       type="text"
-                      name="nombre"
-                      value={formData.nombre}
+                      name="razon_social"
+                      value={formData.razon_social || ''}
                       onChange={handleChange}
                       required
                       className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                      placeholder="Nombre"
+                      placeholder="Nombre completo de la empresa"
                     />
                   </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Apellido *
-                    </label>
-                    <input
-                      type="text"
-                      name="apellido"
-                      value={formData.apellido || ''}
-                      onChange={handleChange}
-                      required={formData.tipo === 'persona'}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                      placeholder="Apellido"
-                    />
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        NIT *
+                      </label>
+                      <input
+                        type="text"
+                        name="nit"
+                        value={formData.nit || ''}
+                        onChange={handleChange}
+                        required
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                        placeholder="900123456-7"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Representante Legal
+                      </label>
+                      <input
+                        type="text"
+                        name="representante_legal"
+                        value={formData.representante_legal || ''}
+                        onChange={handleChange}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                        placeholder="Nombre del representante legal"
+                      />
+                    </div>
                   </div>
-                </div>
-              ) : (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Razón Social *
-                  </label>
-                  <input
-                    type="text"
-                    name="razon_social"
-                    value={formData.razon_social || ''}
-                    onChange={handleChange}
-                    required={formData.tipo === 'empresa'}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                    placeholder="Nombre completo de la empresa"
-                  />
-                  <input type="hidden" name="nombre" value={formData.razon_social || ''} />
-                </div>
-              )}
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Tipo de Documento *
-                  </label>
-                  <select
-                    name="tipo_documento"
-                    value={formData.tipo_documento}
-                    onChange={handleChange}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                  >
-                    {formData.tipo === 'persona' ? (
-                      <>
-                        <option value="cedula">Cédula</option>
-                        <option value="pasaporte">Pasaporte</option>
-                        <option value="cedula_extranjeria">Cédula de Extranjería</option>
-                      </>
-                    ) : (
-                      <option value="nit">NIT</option>
-                    )}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Número de Documento *
-                  </label>
-                  <input
-                    type="text"
-                    name="numero_documento"
-                    value={formData.numero_documento}
-                    onChange={handleChange}
-                    required
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                    placeholder={formData.tipo === 'persona' ? '1234567890' : '900123456-7'}
-                  />
-                </div>
-              </div>
-
-              {formData.tipo === 'persona' && (
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Ocupación
-                    </label>
-                    <input
-                      type="text"
-                      name="ocupacion"
-                      value={formData.ocupacion || ''}
-                      onChange={handleChange}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                      placeholder="Profesión u ocupación"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Empresa
-                    </label>
-                    <input
-                      type="text"
-                      name="empresa"
-                      value={formData.empresa || ''}
-                      onChange={handleChange}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                      placeholder="Empresa donde trabaja"
-                    />
-                  </div>
-                </div>
-              )}
-
-              {formData.tipo === 'empresa' && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Sector Económico
-                  </label>
-                  <input
-                    type="text"
-                    name="sector_economico"
-                    value={formData.sector_economico || ''}
-                    onChange={handleChange}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                    placeholder="Ej: Tecnología, Comercio, Construcción"
-                  />
-                </div>
+                </>
               )}
             </div>
           </div>
@@ -311,12 +288,12 @@ export default function DonanteForm() {
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Celular
+                    Teléfono
                   </label>
                   <input
                     type="tel"
-                    name="celular"
-                    value={formData.celular || ''}
+                    name="telefono"
+                    value={formData.telefono || ''}
                     onChange={handleChange}
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                     placeholder="3001234567"
@@ -324,28 +301,6 @@ export default function DonanteForm() {
                 </div>
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Teléfono Fijo
-                </label>
-                <input
-                  type="tel"
-                  name="telefono"
-                  value={formData.telefono || ''}
-                  onChange={handleChange}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                  placeholder="6011234567"
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* Dirección */}
-          <div className="bg-white rounded-lg shadow p-6">
-            <h2 className="text-lg font-semibold text-gray-900 mb-4">
-              Dirección
-            </h2>
-            <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Dirección
@@ -358,48 +313,6 @@ export default function DonanteForm() {
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                   placeholder="Calle 123 #45-67"
                 />
-              </div>
-
-              <div className="grid grid-cols-3 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Ciudad
-                  </label>
-                  <input
-                    type="text"
-                    name="ciudad"
-                    value={formData.ciudad || ''}
-                    onChange={handleChange}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                    placeholder="Bogotá"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Departamento
-                  </label>
-                  <input
-                    type="text"
-                    name="departamento"
-                    value={formData.departamento || ''}
-                    onChange={handleChange}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                    placeholder="Cundinamarca"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    País
-                  </label>
-                  <input
-                    type="text"
-                    name="pais"
-                    value={formData.pais}
-                    onChange={handleChange}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                    placeholder="Colombia"
-                  />
-                </div>
               </div>
             </div>
           </div>

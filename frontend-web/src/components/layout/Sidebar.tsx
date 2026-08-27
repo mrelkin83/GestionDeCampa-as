@@ -18,7 +18,6 @@ import {
   Gift,
   Receipt,
   Wallet,
-  FolderOpen,
   PieChart
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -77,7 +76,6 @@ const menuItems: MenuItem[] = [
     subItems: [
       { title: 'Donaciones', href: '/donaciones', icon: Gift },
       { title: 'Donantes', href: '/donaciones/donantes', icon: Users },
-      { title: 'Recibos', href: '/donaciones/recibos', icon: Receipt },
     ]
   },
   {
@@ -86,7 +84,6 @@ const menuItems: MenuItem[] = [
     href: '/gastos',
     subItems: [
       { title: 'Gastos', href: '/gastos', icon: Wallet },
-      { title: 'Presupuesto', href: '/gastos/presupuesto', icon: FolderOpen },
     ]
   },
   {

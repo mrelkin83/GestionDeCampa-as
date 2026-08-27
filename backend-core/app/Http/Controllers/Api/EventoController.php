@@ -180,8 +180,13 @@ class EventoController extends Controller
 
         $validator = Validator::make($request->all(), [
             'nombre' => 'sometimes|string|max:200',
+            'descripcion' => 'nullable|string',
+            'tipo' => 'sometimes|string|max:50',
             'estado' => 'sometimes|in:planificado,confirmado,en_curso,finalizado,cancelado,pospuesto',
             'fecha_inicio' => 'sometimes|date',
+            'fecha_fin' => 'nullable|date',
+            'ubicacion_nombre' => 'nullable|string|max:255',
+            'direccion' => 'nullable|string|max:255',
             'capacidad_maxima' => 'nullable|integer|min:1',
         ]);
 
@@ -193,7 +198,11 @@ class EventoController extends Controller
             ], 422);
         }
 
-        $evento->update($request->all());
+        // Solo campos validados arriba -pasar $request->all() permitía
+        // reescribir campana_id/coordinador_id/costo_real/qr_code_token/
+        // total_confirmados/etc. (todos fillable), incluyendo el token QR
+        // que verifica asistencia real al evento.
+        $evento->update($validator->validated());
         $evento->load(['municipio', 'coordinador']);
 
         return response()->json([
@@ -215,6 +224,14 @@ class EventoController extends Controller
                 'success' => false,
                 'message' => 'Evento no encontrado',
             ], 404);
+        }
+
+        $user = $request->user();
+        if ($user->role->name !== 'super_admin' && !$user->hasAccessToCampana($evento->campana_id)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'No tiene acceso a este evento',
+            ], 403);
         }
 
         $validator = Validator::make($request->all(), [
@@ -378,6 +395,42 @@ class EventoController extends Controller
         return response()->json([
             'success' => true,
             'data' => $stats,
+        ], 200);
+    }
+
+    /**
+     * Listado detallado de asistencias de un evento (con datos del votante).
+     * Antes no existía este endpoint: la vista de detalle del evento en el
+     * frontend siempre mostraba la tabla de asistentes vacía, aunque sí
+     * existieran registros reales en eventos_asistencia.
+     */
+    public function asistencias(Request $request, int $id): JsonResponse
+    {
+        $evento = Evento::find($id);
+
+        if (!$evento) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Evento no encontrado',
+            ], 404);
+        }
+
+        $user = $request->user();
+        if ($user->role->name !== 'super_admin' && !$user->hasAccessToCampana($evento->campana_id)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'No tiene acceso a este evento',
+            ], 403);
+        }
+
+        $asistencias = $evento->asistencias()
+            ->with('votante:id,documento,primer_nombre,primer_apellido,celular')
+            ->orderByDesc('created_at')
+            ->get();
+
+        return response()->json([
+            'success' => true,
+            'data' => $asistencias,
         ], 200);
     }
 }

@@ -11,6 +11,11 @@ interface FiltrosAvanzadosProps {
   onDepartamentoChange: (id: number) => void
 }
 
+// VotanteController::index() solo soporta filtrar por municipio_id,
+// intencion_voto y scoring_min -género, rango de edad, scoring_max y
+// departamento_id (como filtro directo, no como selector de municipios)
+// nunca tuvieron soporte real en el backend: se enviaban pero el backend
+// los ignoraba en silencio.
 export default function FiltrosAvanzados({
   isOpen,
   onClose,
@@ -19,29 +24,26 @@ export default function FiltrosAvanzados({
   municipios,
   onDepartamentoChange
 }: FiltrosAvanzadosProps) {
+  const [departamentoId, setDepartamentoId] = useState<number | undefined>()
   const [filters, setFilters] = useState<VotanteFilters>({
-    departamento_id: undefined,
     municipio_id: undefined,
-    genero: undefined,
     intencion_voto: undefined,
     scoring_min: undefined,
-    scoring_max: undefined,
-    edad_min: undefined,
-    edad_max: undefined,
   })
+
+  const handleDepartamentoChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const value = e.target.value ? Number(e.target.value) : undefined
+    setDepartamentoId(value)
+    setFilters(prev => ({ ...prev, municipio_id: undefined }))
+    if (value) onDepartamentoChange(value)
+  }
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target
-    const newFilters = {
-      ...filters,
+    setFilters(prev => ({
+      ...prev,
       [name]: value === '' ? undefined : value
-    }
-    setFilters(newFilters)
-
-    // Si cambió departamento, notificar al padre para cargar municipios
-    if (name === 'departamento_id' && value) {
-      onDepartamentoChange(Number(value))
-    }
+    }))
   }
 
   const handleApply = () => {
@@ -52,6 +54,7 @@ export default function FiltrosAvanzados({
   const handleClear = () => {
     const emptyFilters: VotanteFilters = {}
     setFilters(emptyFilters)
+    setDepartamentoId(undefined)
     onApply(emptyFilters)
     onClose()
   }
@@ -84,9 +87,8 @@ export default function FiltrosAvanzados({
                   Departamento
                 </label>
                 <select
-                  name="departamento_id"
-                  value={filters.departamento_id || ''}
-                  onChange={handleChange}
+                  value={departamentoId || ''}
+                  onChange={handleDepartamentoChange}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                 >
                   <option value="">Todos</option>
@@ -103,7 +105,7 @@ export default function FiltrosAvanzados({
                   name="municipio_id"
                   value={filters.municipio_id || ''}
                   onChange={handleChange}
-                  disabled={!filters.departamento_id}
+                  disabled={!departamentoId}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent disabled:bg-gray-100"
                 >
                   <option value="">Todos</option>
@@ -115,26 +117,10 @@ export default function FiltrosAvanzados({
             </div>
           </div>
 
-          {/* Datos Demográficos */}
+          {/* Segmentación */}
           <div>
-            <h3 className="text-sm font-medium text-gray-900 mb-3">Datos Demográficos</h3>
+            <h3 className="text-sm font-medium text-gray-900 mb-3">Segmentación</h3>
             <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm text-gray-700 mb-2">
-                  Género
-                </label>
-                <select
-                  name="genero"
-                  value={filters.genero || ''}
-                  onChange={handleChange}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                >
-                  <option value="">Todos</option>
-                  <option value="M">Masculino</option>
-                  <option value="F">Femenino</option>
-                  <option value="O">Otro</option>
-                </select>
-              </div>
               <div>
                 <label className="block text-sm text-gray-700 mb-2">
                   Intención de Voto
@@ -146,56 +132,12 @@ export default function FiltrosAvanzados({
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                 >
                   <option value="">Todas</option>
-                  <option value="favorable">Favorable</option>
+                  <option value="a_favor">A favor</option>
                   <option value="indeciso">Indeciso</option>
-                  <option value="desfavorable">Desfavorable</option>
-                  <option value="no_definido">No definido</option>
+                  <option value="en_contra">En contra</option>
+                  <option value="sin_definir">Sin definir</option>
                 </select>
               </div>
-            </div>
-          </div>
-
-          {/* Rango de Edad */}
-          <div>
-            <h3 className="text-sm font-medium text-gray-900 mb-3">Rango de Edad</h3>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm text-gray-700 mb-2">
-                  Edad Mínima
-                </label>
-                <input
-                  type="number"
-                  name="edad_min"
-                  value={filters.edad_min || ''}
-                  onChange={handleChange}
-                  min="18"
-                  max="100"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                  placeholder="18"
-                />
-              </div>
-              <div>
-                <label className="block text-sm text-gray-700 mb-2">
-                  Edad Máxima
-                </label>
-                <input
-                  type="number"
-                  name="edad_max"
-                  value={filters.edad_max || ''}
-                  onChange={handleChange}
-                  min="18"
-                  max="100"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                  placeholder="100"
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* Rango de Scoring */}
-          <div>
-            <h3 className="text-sm font-medium text-gray-900 mb-3">Rango de Scoring</h3>
-            <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm text-gray-700 mb-2">
                   Scoring Mínimo
@@ -209,21 +151,6 @@ export default function FiltrosAvanzados({
                   max="100"
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                   placeholder="0"
-                />
-              </div>
-              <div>
-                <label className="block text-sm text-gray-700 mb-2">
-                  Scoring Máximo
-                </label>
-                <input
-                  type="number"
-                  name="scoring_max"
-                  value={filters.scoring_max || ''}
-                  onChange={handleChange}
-                  min="0"
-                  max="100"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                  placeholder="100"
                 />
               </div>
             </div>

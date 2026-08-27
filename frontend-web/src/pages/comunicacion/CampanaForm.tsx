@@ -6,11 +6,13 @@ import Badge from '@/components/ui/Badge'
 import { campanasAPI, templatesAPI, segmentosAPI } from '@/lib/api'
 import { Campana, Template } from '@/types/comunicacion'
 import { Segmento } from '@/types/votante'
+import { useActiveCampana } from '@/hooks/useActiveCampana'
 
 export default function CampanaForm() {
   const { id } = useParams()
   const navigate = useNavigate()
   const isEdit = !!id
+  const { campanaId } = useActiveCampana()
 
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -21,7 +23,6 @@ export default function CampanaForm() {
 
   const [formData, setFormData] = useState<Partial<Campana>>({
     nombre: '',
-    descripcion: '',
     template_id: undefined,
     segmento_id: undefined,
     canal: 'whatsapp',
@@ -61,8 +62,8 @@ export default function CampanaForm() {
   const loadData = async () => {
     try {
       const [templatesRes, segmentosRes] = await Promise.all([
-        templatesAPI.getAll({ activo: true }),
-        segmentosAPI.getAll()
+        templatesAPI.getAll({ campana_id: campanaId, activos: true }),
+        segmentosAPI.getAll({ campana_id: campanaId })
       ])
       setTemplates(templatesRes.data || [])
       setSegmentos(segmentosRes.data || [])
@@ -99,9 +100,16 @@ export default function CampanaForm() {
     setSaving(true)
 
     try {
+      // El backend no persiste 'descripcion' en storeCampana/updateCampana
+      // (no está en sus reglas de validación ni en el create() explícito) -
+      // se omite en vez de simular que se guarda.
       const dataToSend = {
-        ...formData,
-        fecha_programada: programarEnvio ? formData.fecha_programada : undefined
+        campana_id: campanaId,
+        nombre: formData.nombre,
+        canal: formData.canal,
+        template_id: formData.template_id,
+        segmento_id: formData.segmento_id,
+        fecha_envio_programada: programarEnvio ? formData.fecha_programada : undefined,
       }
 
       if (isEdit) {
@@ -172,19 +180,6 @@ export default function CampanaForm() {
                 />
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Descripción
-                </label>
-                <textarea
-                  name="descripcion"
-                  value={formData.descripcion || ''}
-                  onChange={handleChange}
-                  rows={2}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                  placeholder="Describe el objetivo de esta campaña"
-                />
-              </div>
             </div>
           </div>
 
@@ -234,11 +229,11 @@ export default function CampanaForm() {
                   <p className="text-sm text-gray-700 whitespace-pre-wrap">
                     {selectedTemplate.contenido}
                   </p>
-                  {selectedTemplate.variables && selectedTemplate.variables.length > 0 && (
+                  {selectedTemplate.variables_disponibles && selectedTemplate.variables_disponibles.length > 0 && (
                     <div className="mt-3 pt-3 border-t border-gray-200">
                       <p className="text-xs text-gray-600 mb-1">Variables utilizadas:</p>
                       <div className="flex flex-wrap gap-1">
-                        {selectedTemplate.variables.map((variable, idx) => (
+                        {selectedTemplate.variables_disponibles.map((variable, idx) => (
                           <span key={idx} className="px-2 py-1 bg-yellow-100 text-yellow-800 text-xs rounded">
                             {`{${variable}}`}
                           </span>

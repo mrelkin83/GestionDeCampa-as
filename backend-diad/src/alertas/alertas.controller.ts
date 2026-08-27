@@ -12,10 +12,7 @@ export class AlertasController {
   }
 
   @Get('campaign/:campaignId')
-  async findByCampaign(
-    @Param('campaignId') campaignId: string,
-    @Query('estado') estado?: string,
-  ) {
+  async findByCampaign(@Param('campaignId') campaignId: string, @Query('estado') estado?: string) {
     return this.alertasService.findByCampaign(campaignId, estado);
   }
 

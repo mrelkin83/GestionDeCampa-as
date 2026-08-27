@@ -1,0 +1,131 @@
+# Load Testing Configuration - Artillery
+# 
+# Ejecutar: artillery run tests/Load/api-load-test.yml
+#
+# Requisitos:
+#   npm install -g artillery
+
+config:
+  target: 'http://localhost:8000'
+  phases:
+    # Fase 1: Warm up - 10 usuarios durante 1 minuto
+    - duration: 60
+      arrivalRate: 10
+      name: "Warm up"
+    
+    # Fase 2: Carga normal - 50 usuarios durante 3 minutos
+    - duration: 180
+      arrivalRate: 50
+      name: "Carga normal"
+    
+    # Fase 3: Pico - 100 usuarios durante 2 minutos
+    - duration: 120
+      arrivalRate: 100
+      name: "Pico de carga"
+    
+    # Fase 4: Sostenida - 50 usuarios durante 2 minutos
+    - duration: 120
+      arrivalRate: 50
+      name: "Carga sostenida"
+  
+  defaults:
+    headers:
+      Content-Type: 'application/json'
+      Accept: 'application/json'
+  
+  # Variables globales
+  variables:
+    eleccion_id: 1
+    cargo_id: 1
+    mesa_id: 1
+
+scenarios:
+  # ==========================================
+  # Escenario 1: Consulta de Resultados
+  # ==========================================
+  - name: "Consultar Resultados"
+    weight: 40
+    requests:
+      - get:
+          url: "/api/preconteo/elecciones"
+          expect:
+            - statusCode: 200
+            - contentType: json
+      
+      - think: 2
+      
+      - get:
+          url: "/api/preconteo/resultados?scope_type=MESA&scope_id={{ mesa_id }}&cargo_id={{ cargo_id }}"
+          expect:
+            - statusCode: 200
+            - contentType: json
+            - hasProperty: "success"
+
+  # ==========================================
+  # Escenario 2: Consultar Progreso
+  # ==========================================
+  - name: "Consultar Progreso"
+    weight: 30
+    requests:
+      - get:
+          url: "/api/preconteo/progreso?scope_type=MESA&scope_id={{ mesa_id }}&cargo_id={{ cargo_id }}"
+          expect:
+            - statusCode: 200
+            - contentType: json
+            - hasProperty: "data.total_mesas"
+
+  # ==========================================
+  # Escenario 3: Listar Actas
+  # ==========================================
+  - name: "Listar Actas"
+    weight: 20
+    requests:
+      - get:
+          url: "/api/preconteo/actas?page=1&per_page=20"
+          expect:
+            - statusCode: 200
+            - contentType: json
+            - hasProperty: "data.data"
+
+  # ==========================================
+  # Escenario 4: Workflow Completo (más pesado)
+  # ==========================================
+  - name: "Workflow Completo"
+    weight: 10
+    requests:
+      # 1. Obtener elecciones
+      - get:
+          url: "/api/preconteo/elecciones"
+          capture:
+            - json: "$.data[0].id"
+              as: "eleccion_id"
+      
+      - think: 1
+      
+      # 2. Obtener cargos
+      - get:
+          url: "/api/preconteo/cargos/{{ eleccion_id }}"
+      
+      - think: 1
+      
+      # 3. Consultar resultados
+      - get:
+          url: "/api/preconteo/resultados?scope_type=MESA&scope_id={{ mesa_id }}&cargo_id={{ cargo_id }}"
+      
+      - think: 1
+      
+      # 4. Consultar progreso
+      - get:
+          url: "/api/preconteo/progreso?scope_type=MESA&scope_id={{ mesa_id }}&cargo_id={{ cargo_id }}"
+
+# Plugins para métricas
+plugins:
+  metrics-by-endpoint:
+    useOnlyRequestNames: true
+  
+  expect: {}
+
+# Métricas a reportar
+report:
+  - json
+  - html

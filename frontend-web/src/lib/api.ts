@@ -44,12 +44,18 @@ export const authAPI = {
     return response.data
   },
 
+  // Solo super_admin puede llamar esto (ver backend-core routes/api.php);
+  // no es un auto-registro público.
   register: async (data: {
-    name: string
     email: string
     password: string
     password_confirmation: string
+    first_name: string
+    last_name: string
     phone?: string
+    document_type: 'CC' | 'CE' | 'TI' | 'PAS'
+    document_number: string
+    role_id: number
   }) => {
     const response = await api.post('/auth/register', data)
     return response.data
@@ -62,6 +68,27 @@ export const authAPI = {
 
   me: async () => {
     const response = await api.get('/auth/me')
+    return response.data
+  },
+
+  updateProfile: async (data: { first_name?: string; last_name?: string; phone?: string }) => {
+    const response = await api.put('/auth/profile', data)
+    return response.data
+  },
+
+  changePassword: async (data: {
+    current_password: string
+    new_password: string
+    new_password_confirmation: string
+  }) => {
+    const response = await api.put('/auth/password', data)
+    return response.data
+  },
+}
+
+export const rolesAPI = {
+  getAll: async () => {
+    const response = await api.get('/roles')
     return response.data
   },
 }
@@ -106,8 +133,13 @@ export const votantesAPI = {
     return response.data
   },
 
-  delete: async (id: number) => {
-    const response = await api.delete(`/crm/votantes/${id}`)
+  registrarContacto: async (id: number, data: any) => {
+    const response = await api.post(`/crm/votantes/${id}/contacto`, data)
+    return response.data
+  },
+
+  getContactos: async (id: number) => {
+    const response = await api.get(`/crm/votantes/${id}/contactos`)
     return response.data
   },
 }
@@ -177,8 +209,8 @@ export const eventosAPI = {
     return response.data
   },
 
-  delete: async (id: number) => {
-    const response = await api.delete(`/eventos/${id}`)
+  getAsistencias: async (id: number) => {
+    const response = await api.get(`/eventos/${id}/asistencias`)
     return response.data
   },
 }
@@ -186,32 +218,32 @@ export const eventosAPI = {
 // Templates API
 export const templatesAPI = {
   getAll: async (params?: any) => {
-    const response = await api.get('/communication/templates', { params })
+    const response = await api.get('/comunicacion/templates', { params })
     return response.data
   },
 
   getById: async (id: number) => {
-    const response = await api.get(`/communication/templates/${id}`)
+    const response = await api.get(`/comunicacion/templates/${id}`)
     return response.data
   },
 
   create: async (data: any) => {
-    const response = await api.post('/communication/templates', data)
+    const response = await api.post('/comunicacion/templates', data)
     return response.data
   },
 
   update: async (id: number, data: any) => {
-    const response = await api.put(`/communication/templates/${id}`, data)
+    const response = await api.put(`/comunicacion/templates/${id}`, data)
     return response.data
   },
 
   delete: async (id: number) => {
-    const response = await api.delete(`/communication/templates/${id}`)
+    const response = await api.delete(`/comunicacion/templates/${id}`)
     return response.data
   },
 
   preview: async (id: number, votanteId: number) => {
-    const response = await api.get(`/communication/templates/${id}/preview/${votanteId}`)
+    const response = await api.get(`/comunicacion/templates/${id}/preview/${votanteId}`)
     return response.data
   },
 }
@@ -219,52 +251,47 @@ export const templatesAPI = {
 // Campañas API
 export const campanasAPI = {
   getAll: async (params?: any) => {
-    const response = await api.get('/communication/campanas', { params })
+    const response = await api.get('/comunicacion/campanas', { params })
     return response.data
   },
 
   getById: async (id: number) => {
-    const response = await api.get(`/communication/campanas/${id}`)
+    const response = await api.get(`/comunicacion/campanas/${id}`)
     return response.data
   },
 
   create: async (data: any) => {
-    const response = await api.post('/communication/campanas', data)
+    const response = await api.post('/comunicacion/campanas', data)
     return response.data
   },
 
   update: async (id: number, data: any) => {
-    const response = await api.put(`/communication/campanas/${id}`, data)
+    const response = await api.put(`/comunicacion/campanas/${id}`, data)
     return response.data
   },
 
   delete: async (id: number) => {
-    const response = await api.delete(`/communication/campanas/${id}`)
+    const response = await api.delete(`/comunicacion/campanas/${id}`)
     return response.data
   },
 
   enviar: async (id: number) => {
-    const response = await api.post(`/communication/campanas/${id}/enviar`)
+    const response = await api.post(`/comunicacion/campanas/${id}/enviar`)
     return response.data
   },
 
   programar: async (id: number, fecha: string) => {
-    const response = await api.post(`/communication/campanas/${id}/programar`, { fecha_programada: fecha })
+    const response = await api.post(`/comunicacion/campanas/${id}/programar`, { fecha_programada: fecha })
     return response.data
   },
 
   cancelar: async (id: number) => {
-    const response = await api.post(`/communication/campanas/${id}/cancelar`)
+    const response = await api.post(`/comunicacion/campanas/${id}/cancelar`)
     return response.data
   },
 
   estadisticas: async (id: number) => {
-    const response = await api.get(`/communication/campanas/${id}/estadisticas`)
-    return response.data
-  },
-
-  mensajes: async (id: number, params?: any) => {
-    const response = await api.get(`/communication/campanas/${id}/mensajes`, { params })
+    const response = await api.get(`/comunicacion/campanas/${id}/estadisticas`)
     return response.data
   },
 }
@@ -272,17 +299,17 @@ export const campanasAPI = {
 // Mensajes API
 export const mensajesAPI = {
   getAll: async (params?: any) => {
-    const response = await api.get('/communication/mensajes', { params })
+    const response = await api.get('/comunicacion/mensajes', { params })
     return response.data
   },
 
   getById: async (id: number) => {
-    const response = await api.get(`/communication/mensajes/${id}`)
+    const response = await api.get(`/comunicacion/mensajes/${id}`)
     return response.data
   },
 
   reenviar: async (id: number) => {
-    const response = await api.post(`/communication/mensajes/${id}/reenviar`)
+    const response = await api.post(`/comunicacion/mensajes/${id}/reenviar`)
     return response.data
   },
 }
@@ -290,32 +317,35 @@ export const mensajesAPI = {
 // Donantes API
 export const donantesAPI = {
   getAll: async (params?: any) => {
-    const response = await api.get('/donaciones/donantes', { params })
+    const response = await api.get('/donantes', { params })
     return response.data
   },
 
   getById: async (id: number) => {
-    const response = await api.get(`/donaciones/donantes/${id}`)
+    const response = await api.get(`/donantes/${id}`)
     return response.data
   },
 
   create: async (data: any) => {
-    const response = await api.post('/donaciones/donantes', data)
+    const response = await api.post('/donantes', data)
     return response.data
   },
 
   update: async (id: number, data: any) => {
-    const response = await api.put(`/donaciones/donantes/${id}`, data)
+    const response = await api.put(`/donantes/${id}`, data)
     return response.data
   },
 
-  delete: async (id: number) => {
-    const response = await api.delete(`/donaciones/donantes/${id}`)
+  // No existe (ni debería existir) un DELETE real de donantes: son
+  // registros con historial de donaciones sujeto a reporte ante el CNE.
+  // La acción real equivalente en el backend es marcarInvalido.
+  marcarInvalido: async (id: number, razon: string) => {
+    const response = await api.post(`/donantes/${id}/marcar-invalido`, { razon_invalido: razon })
     return response.data
   },
 
   getDonaciones: async (id: number, params?: any) => {
-    const response = await api.get(`/donaciones/donantes/${id}/donaciones`, { params })
+    const response = await api.get(`/donantes/${id}/historial`, { params })
     return response.data
   },
 }
@@ -337,18 +367,8 @@ export const donacionesAPI = {
     return response.data
   },
 
-  update: async (id: number, data: any) => {
-    const response = await api.put(`/donaciones/${id}`, data)
-    return response.data
-  },
-
-  delete: async (id: number) => {
-    const response = await api.delete(`/donaciones/${id}`)
-    return response.data
-  },
-
-  confirmar: async (id: number) => {
-    const response = await api.post(`/donaciones/${id}/confirmar`)
+  confirmar: async (id: number, numeroComprobante: string) => {
+    const response = await api.post(`/donaciones/${id}/confirmar`, { numero_comprobante: numeroComprobante })
     return response.data
   },
 
@@ -357,71 +377,13 @@ export const donacionesAPI = {
     return response.data
   },
 
-  generarRecibo: async (id: number) => {
-    const response = await api.post(`/donaciones/${id}/recibo`)
+  reportarCNE: async (id: number, numeroReporteCne: string) => {
+    const response = await api.post(`/donaciones/${id}/reportar-cne`, { numero_reporte_cne: numeroReporteCne })
     return response.data
   },
 
   estadisticas: async (params?: any) => {
     const response = await api.get('/donaciones/estadisticas', { params })
-    return response.data
-  },
-}
-
-// Recibos API
-export const recibosAPI = {
-  getAll: async (params?: any) => {
-    const response = await api.get('/donaciones/recibos', { params })
-    return response.data
-  },
-
-  getById: async (id: number) => {
-    const response = await api.get(`/donaciones/recibos/${id}`)
-    return response.data
-  },
-
-  descargar: async (id: number) => {
-    const response = await api.get(`/donaciones/recibos/${id}/pdf`, {
-      responseType: 'blob'
-    })
-    return response.data
-  },
-
-  regenerar: async (id: number) => {
-    const response = await api.post(`/donaciones/recibos/${id}/regenerar`)
-    return response.data
-  },
-}
-
-// Categorías de Gasto API
-export const categoriasGastoAPI = {
-  getAll: async (params?: any) => {
-    const response = await api.get('/gastos/categorias', { params })
-    return response.data
-  },
-
-  getById: async (id: number) => {
-    const response = await api.get(`/gastos/categorias/${id}`)
-    return response.data
-  },
-
-  create: async (data: any) => {
-    const response = await api.post('/gastos/categorias', data)
-    return response.data
-  },
-
-  update: async (id: number, data: any) => {
-    const response = await api.put(`/gastos/categorias/${id}`, data)
-    return response.data
-  },
-
-  delete: async (id: number) => {
-    const response = await api.delete(`/gastos/categorias/${id}`)
-    return response.data
-  },
-
-  presupuesto: async () => {
-    const response = await api.get('/gastos/categorias/presupuesto')
     return response.data
   },
 }
@@ -448,11 +410,6 @@ export const gastosAPI = {
     return response.data
   },
 
-  delete: async (id: number) => {
-    const response = await api.delete(`/gastos/${id}`)
-    return response.data
-  },
-
   aprobar: async (id: number) => {
     const response = await api.post(`/gastos/${id}/aprobar`)
     return response.data
@@ -473,16 +430,6 @@ export const gastosAPI = {
     return response.data
   },
 
-  uploadRecibo: async (id: number, file: File) => {
-    const formData = new FormData()
-    formData.append('recibo', file)
-    const response = await api.post(`/gastos/${id}/recibo`, formData, {
-      headers: {
-        'Content-Type': 'multipart/form-data'
-      }
-    })
-    return response.data
-  },
 }
 
 // Analytics API

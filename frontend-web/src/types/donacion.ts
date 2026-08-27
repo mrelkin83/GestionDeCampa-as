@@ -1,36 +1,36 @@
 export interface Donante {
   id: number
   campana_id: number
-  tipo: 'persona' | 'empresa'
+  tipo: 'persona_natural' | 'persona_juridica'
 
-  // Información Personal/Empresa
-  nombre: string
-  apellido?: string // Solo para personas
-  razon_social?: string // Solo para empresas
-  tipo_documento: 'cedula' | 'nit' | 'pasaporte' | 'cedula_extranjeria'
-  numero_documento: string
+  // Persona natural
+  documento?: string
+  tipo_documento?: 'CC' | 'CE' | 'PA' | 'TI'
+  nombres?: string
+  apellidos?: string
+
+  // Persona jurídica
+  nit?: string
+  razon_social?: string
+  representante_legal?: string
 
   // Contacto
   email?: string
   telefono?: string
-  celular?: string
-
-  // Dirección
   direccion?: string
-  ciudad?: string
-  departamento?: string
-  pais: string
+  municipio_id?: number
 
-  // Información Adicional
-  ocupacion?: string
-  empresa?: string
-  sector_economico?: string
-  es_anonimo: boolean
-
-  // Estadísticas
-  total_donaciones?: number
-  monto_total_donado?: number
-  ultima_donacion?: string
+  // Calculado por el backend
+  nombre_completo?: string
+  total_donado?: number
+  numero_donaciones?: number
+  fecha_primera_donacion?: string
+  fecha_ultima_donacion?: string
+  categoria?: string
+  notas?: string
+  es_valido?: boolean
+  razon_invalido?: string
+  acepta_publicacion?: boolean
 
   created_at?: string
   updated_at?: string
@@ -43,104 +43,32 @@ export interface Donacion {
 
   // Información de la Donación
   monto: number
+  moneda: 'COP' | 'USD'
+  tipo: 'efectivo' | 'transferencia' | 'cheque' | 'especie' | 'servicio'
   fecha_donacion: string
-  metodo_pago: 'efectivo' | 'transferencia' | 'tarjeta_credito' | 'tarjeta_debito' | 'cheque' | 'otro'
-  referencia?: string // Número de transacción, cheque, etc.
-  banco?: string
+  concepto?: string
+  numero_comprobante?: string
+  numero_cuenta_destino?: string
+  descripcion_especie?: string
+  valor_estimado_especie?: number
 
-  // Estado y Validación
-  estado: 'pendiente' | 'confirmada' | 'rechazada' | 'reversada'
-  observaciones?: string
+  // Estado
+  estado: 'pendiente' | 'confirmada' | 'rechazada' | 'reportada_cne'
+  notas?: string
+  excede_tope_individual?: boolean
+  requiere_validacion?: boolean
+  observaciones_validacion?: string
 
-  // Compliance
-  requiere_reporte: boolean // Si supera límites legales
-  verificada: boolean
-  fecha_verificacion?: string
-  verificada_por?: number // user_id
-
-  // Recibo
-  recibo_id?: number
-  recibo_generado: boolean
+  // Cumplimiento
+  reportada_cne?: boolean
+  fecha_reporte_cne?: string
+  numero_reporte_cne?: string
 
   // Relaciones
   donante?: Donante
-  recibo?: Recibo
 
   created_at?: string
   updated_at?: string
-}
-
-export interface Recibo {
-  id: number
-  donacion_id: number
-  campana_id: number
-
-  // Información del Recibo
-  numero_recibo: string
-  fecha_emision: string
-  monto: number
-
-  // Beneficiario (Campaña/Candidato)
-  beneficiario_nombre: string
-  beneficiario_documento: string
-
-  // Donante
-  donante_nombre: string
-  donante_documento: string
-
-  // Archivo
-  pdf_url?: string
-  pdf_generado: boolean
-
-  // Relaciones
-  donacion?: Donacion
-
-  created_at?: string
-  updated_at?: string
-}
-
-export interface EstadisticasDonaciones {
-  total_recaudado: number
-  total_donaciones: number
-  total_donantes: number
-  promedio_donacion: number
-
-  // Por método de pago
-  por_metodo: {
-    efectivo: number
-    transferencia: number
-    tarjeta: number
-    cheque: number
-    otro: number
-  }
-
-  // Por estado
-  confirmadas: number
-  pendientes: number
-  rechazadas: number
-
-  // Por periodo
-  mes_actual: number
-  mes_anterior: number
-  trimestre_actual: number
-  anio_actual: number
-
-  // Top donantes
-  top_donantes?: {
-    donante: Donante
-    monto_total: number
-    cantidad_donaciones: number
-  }[]
-}
-
-export interface DonantePagination {
-  data: Donante[]
-  total: number
-  per_page: number
-  current_page: number
-  last_page: number
-  from: number
-  to: number
 }
 
 export interface DonacionPagination {
@@ -149,41 +77,28 @@ export interface DonacionPagination {
   per_page: number
   current_page: number
   last_page: number
-  from: number
-  to: number
 }
 
-export interface ReciboPagination {
-  data: Recibo[]
-  total: number
-  per_page: number
-  current_page: number
-  last_page: number
-  from: number
-  to: number
-}
-
-export interface DonanteFilters {
-  tipo?: string
-  search?: string
-  monto_min?: number
-  monto_max?: number
-}
-
-export interface DonacionFilters {
-  donante_id?: number
-  metodo_pago?: string
-  estado?: string
-  fecha_desde?: string
-  fecha_hasta?: string
-  monto_min?: number
-  monto_max?: number
-  search?: string
-}
-
-export interface ReciboFilters {
-  donante_id?: number
-  fecha_desde?: string
-  fecha_hasta?: string
-  search?: string
+export interface EstadisticasDonaciones {
+  resumen: {
+    total_recaudado: number
+    numero_donaciones: number
+    promedio_donacion: number
+    efectivo: number
+    especie: number
+  }
+  topes_legales: {
+    limite_total: number
+    recaudado: number
+    disponible: number
+    porcentaje_usado: number
+    alerta_80: boolean
+    alerta_90: boolean
+    limite_excedido: boolean
+  } | null
+  cumplimiento: {
+    pendientes_reporte_cne: number
+    reportadas_cne: number
+  }
+  por_tipo: Array<{ tipo: string; cantidad: number; total: number }>
 }

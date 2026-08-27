@@ -183,4 +183,92 @@ class AuthController extends Controller
             'data' => $user,
         ], 201);
     }
+
+    /**
+     * Actualizar datos del propio perfil (no permite cambiar email, rol ni
+     * contraseña -eso pasa por register()/changePassword() bajo control de
+     * permisos aparte).
+     *
+     * @param Request $request
+     * @return JsonResponse
+     */
+    public function updateProfile(Request $request): JsonResponse
+    {
+        $validator = Validator::make($request->all(), [
+            'first_name' => 'sometimes|required|string|max:100',
+            'last_name' => 'sometimes|required|string|max:100',
+            'phone' => 'nullable|string|max:20',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Datos de validación incorrectos',
+                'errors' => $validator->errors(),
+            ], 422);
+        }
+
+        $user = $request->user();
+        $user->update($validator->validated());
+        $user->load('role');
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Perfil actualizado exitosamente',
+            'data' => [
+                'id' => $user->id,
+                'email' => $user->email,
+                'first_name' => $user->first_name,
+                'last_name' => $user->last_name,
+                'full_name' => $user->full_name,
+                'phone' => $user->phone,
+                'avatar_url' => $user->avatar_url,
+            ],
+        ], 200);
+    }
+
+    /**
+     * Cambiar la contraseña del usuario autenticado. Exige la contraseña
+     * actual y revoca el resto de tokens activos por seguridad (un cambio
+     * de contraseña debe cerrar cualquier otra sesión existente).
+     *
+     * @param Request $request
+     * @return JsonResponse
+     */
+    public function changePassword(Request $request): JsonResponse
+    {
+        $validator = Validator::make($request->all(), [
+            'current_password' => 'required|string',
+            'new_password' => 'required|string|min:8|confirmed',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Datos de validación incorrectos',
+                'errors' => $validator->errors(),
+            ], 422);
+        }
+
+        $user = $request->user();
+
+        if (!Hash::check($request->current_password, $user->password)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'La contraseña actual es incorrecta',
+            ], 422);
+        }
+
+        $user->update(['password' => Hash::make($request->new_password)]);
+
+        // Revocar otros tokens: un cambio de contraseña debe invalidar
+        // cualquier sesión abierta en otros dispositivos.
+        $currentTokenId = $request->user()->currentAccessToken()->id;
+        $user->tokens()->where('id', '!=', $currentTokenId)->delete();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Contraseña actualizada exitosamente',
+        ], 200);
+    }
 }

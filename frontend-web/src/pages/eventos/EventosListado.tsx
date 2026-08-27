@@ -5,21 +5,26 @@ import MainLayout from '@/components/layout/MainLayout'
 import Badge from '@/components/ui/Badge'
 import { eventosAPI } from '@/lib/api'
 import { Evento } from '@/types/evento'
+import { useActiveCampana } from '@/hooks/useActiveCampana'
 
 export default function EventosListado() {
   const navigate = useNavigate()
+  const { campanaId } = useActiveCampana()
   const [eventos, setEventos] = useState<Evento[]>([])
   const [loading, setLoading] = useState(true)
   const [filtroTipo, setFiltroTipo] = useState<string>('')
 
   useEffect(() => {
-    fetchEventos()
-  }, [filtroTipo])
+    if (campanaId) {
+      fetchEventos()
+    }
+  }, [filtroTipo, campanaId])
 
   const fetchEventos = async () => {
     try {
       setLoading(true)
       const response = await eventosAPI.getAll({
+        campana_id: campanaId,
         tipo: filtroTipo || undefined
       })
       setEventos(response.data || [])
@@ -36,6 +41,7 @@ export default function EventosListado() {
       mitin: { text: 'Mitin', variant: 'success' as const },
       puerta_puerta: { text: 'Puerta a Puerta', variant: 'warning' as const },
       capacitacion: { text: 'Capacitación', variant: 'default' as const },
+      movilizacion: { text: 'Movilización', variant: 'info' as const },
       otro: { text: 'Otro', variant: 'default' as const },
     }
     const config = badges[tipo as keyof typeof badges] || badges.otro
@@ -215,10 +221,10 @@ export default function EventosListado() {
                               <Clock className="w-4 h-4" />
                               <span>{formatDate(evento.fecha_inicio)}</span>
                             </div>
-                            {evento.ubicacion && (
+                            {evento.ubicacion_nombre && (
                               <div className="flex items-center gap-2 text-gray-600">
                                 <MapPin className="w-4 h-4" />
-                                <span>{evento.ubicacion}</span>
+                                <span>{evento.ubicacion_nombre}</span>
                               </div>
                             )}
                             <div className="flex items-center gap-2 text-gray-600">

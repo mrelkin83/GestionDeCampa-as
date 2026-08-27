@@ -108,9 +108,7 @@ class DonacionController extends Controller
         $donante = Donante::find($request->donante_id);
 
         // Validar tope individual
-        $topeLegal = TopeLegal::where('campana_id', $request->campana_id)
-            ->where('tipo_tope', 'donacion_individual')
-            ->first();
+        $topeLegal = TopeLegal::where('campana_id', $request->campana_id)->first();
 
         $montoActual = $request->tipo === 'especie' || $request->tipo === 'servicio'
             ? $request->valor_estimado_especie
@@ -126,7 +124,7 @@ class DonacionController extends Controller
         $requiereValidacion = false;
 
         if ($topeLegal) {
-            $limiteIndividual = $topeLegal->limite_individual;
+            $limiteIndividual = $topeLegal->tope_donaciones_individuales;
             if ($nuevoTotal > $limiteIndividual) {
                 $excedeTopeIndividual = true;
                 $requiereValidacion = true;
@@ -139,11 +137,11 @@ class DonacionController extends Controller
             $donacion = Donacion::create(array_merge($request->all(), [
                 'registrado_por_id' => $request->user()->id,
                 'fecha_registro' => now(),
-                'estado' => $requiereValidacion ? 'pendiente_validacion' : 'registrada',
+                'estado' => 'pendiente',
                 'excede_tope_individual' => $excedeTopeIndividual,
                 'requiere_validacion' => $requiereValidacion,
                 'observaciones_validacion' => $excedeTopeIndividual
-                    ? "La donación excede el tope individual de $" . number_format($topeLegal->limite_individual ?? 0, 0)
+                    ? "La donación excede el tope individual de $" . number_format($topeLegal->tope_donaciones_individuales ?? 0, 0)
                     : null,
             ]));
 
@@ -231,6 +229,14 @@ class DonacionController extends Controller
             ], 404);
         }
 
+        $user = $request->user();
+        if ($user->role->name !== 'super_admin' && !$user->hasAccessToCampana($donacion->campana_id)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'No tiene acceso a esta donación',
+            ], 403);
+        }
+
         if ($donacion->estado === 'confirmada') {
             return response()->json([
                 'success' => false,
@@ -278,6 +284,14 @@ class DonacionController extends Controller
             ], 404);
         }
 
+        $user = $request->user();
+        if ($user->role->name !== 'super_admin' && !$user->hasAccessToCampana($donacion->campana_id)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'No tiene acceso a esta donación',
+            ], 403);
+        }
+
         $validator = Validator::make($request->all(), [
             'motivo' => 'required|string|max:500',
         ]);
@@ -314,6 +328,14 @@ class DonacionController extends Controller
                 'success' => false,
                 'message' => 'Donación no encontrada',
             ], 404);
+        }
+
+        $user = $request->user();
+        if ($user->role->name !== 'super_admin' && !$user->hasAccessToCampana($donacion->campana_id)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'No tiene acceso a esta donación',
+            ], 403);
         }
 
         if ($donacion->estado !== 'confirmada') {
@@ -403,13 +425,13 @@ class DonacionController extends Controller
                 'especie' => $donacionesEspecie,
             ],
             'topes_legales' => $topeLegal ? [
-                'limite_total' => $topeLegal->limite_total,
+                'limite_total' => $topeLegal->tope_donaciones_individuales,
                 'recaudado' => $totalDonaciones,
-                'disponible' => $topeLegal->limite_total - $totalDonaciones,
-                'porcentaje_usado' => round(($totalDonaciones / $topeLegal->limite_total) * 100, 2),
+                'disponible' => $topeLegal->tope_donaciones_individuales - $totalDonaciones,
+                'porcentaje_usado' => round(($totalDonaciones / $topeLegal->tope_donaciones_individuales) * 100, 2),
                 'alerta_80' => $topeLegal->alerta_80_porciento,
                 'alerta_90' => $topeLegal->alerta_90_porciento,
-                'limite_excedido' => $topeLegal->limite_excedido,
+                'limite_excedido' => $topeLegal->alerta_excedido,
             ] : null,
             'cumplimiento' => [
                 'pendientes_reporte_cne' => $pendientesReporte,
@@ -439,12 +461,15 @@ class DonacionController extends Controller
             ->confirmadas()
             ->sum(DB::raw('COALESCE(valor_estimado_especie, monto)'));
 
-        $porcentaje = ($totalDonaciones / $topeLegal->limite_total) * 100;
+        $porcentaje = ($totalDonaciones / $topeLegal->tope_donaciones_individuales) * 100;
 
         $topeLegal->update([
+            'total_donaciones_actual' => $totalDonaciones,
+            'porcentaje_tope_donaciones' => round($porcentaje, 2),
             'alerta_80_porciento' => $porcentaje >= 80,
             'alerta_90_porciento' => $porcentaje >= 90,
-            'limite_excedido' => $totalDonaciones > $topeLegal->limite_total,
+            'alerta_excedido' => $totalDonaciones > $topeLegal->tope_donaciones_individuales,
+            'ultima_actualizacion' => now(),
         ]);
     }
 }

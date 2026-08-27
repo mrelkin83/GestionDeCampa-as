@@ -6,7 +6,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use Phaza\LaravelPostgis\Eloquent\PostgisTrait;
+use App\Support\Postgis\PostgisTrait;
 
 class PuestoVotacion extends Model
 {
@@ -49,6 +49,22 @@ class PuestoVotacion extends Model
     protected $postgisFields = [
         'location',
     ];
+
+    protected static function booted(): void
+    {
+        // cercanos() filtra por whereNotNull('location') y hace ST_DWithin
+        // sobre esa columna PostGIS -pero nada la derivaba nunca de
+        // latitud/longitud, los campos que sí se usan al crear/editar un
+        // puesto normalmente (API, seeders, importación). Sin esto, todo
+        // puesto con coordenadas válidas quedaba invisible para la búsqueda
+        // de "puestos cercanos" salvo que alguien fijara 'location' a mano
+        // con un WKT.
+        static::saving(function (self $puesto) {
+            if ($puesto->isDirty(['latitud', 'longitud']) && $puesto->latitud !== null && $puesto->longitud !== null) {
+                $puesto->location = "POINT({$puesto->longitud} {$puesto->latitud})";
+            }
+        });
+    }
 
     /**
      * Relación: Un puesto pertenece a un municipio

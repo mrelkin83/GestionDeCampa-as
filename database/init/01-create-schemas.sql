@@ -44,135 +44,21 @@ COMMENT ON SCHEMA analytics IS 'Métricas, reportes, vistas materializadas';
 -- ============================================
 -- TABLAS SISTEMA (PUBLIC SCHEMA)
 -- ============================================
-
--- Tabla: users
-CREATE TABLE IF NOT EXISTS public.users (
-    id SERIAL PRIMARY KEY,
-    nombre_completo VARCHAR(200) NOT NULL,
-    email VARCHAR(100) UNIQUE NOT NULL,
-    password VARCHAR(255) NOT NULL,
-    rol VARCHAR(50) NOT NULL DEFAULT 'brigadista',
-    campanas_asignadas INTEGER[] DEFAULT '{}',
-    activo BOOLEAN DEFAULT true,
-    email_verified_at TIMESTAMP,
-    remember_token VARCHAR(100),
-    created_at TIMESTAMP DEFAULT NOW(),
-    updated_at TIMESTAMP DEFAULT NOW()
-);
-
-COMMENT ON TABLE public.users IS 'Usuarios del sistema con autenticación';
-COMMENT ON COLUMN public.users.rol IS 'Roles: super_admin, admin_campana, director, coordinador, brigadista, testigo';
-
-CREATE INDEX idx_users_email ON public.users(email);
-CREATE INDEX idx_users_rol ON public.users(rol);
-
--- Tabla: roles
-CREATE TABLE IF NOT EXISTS public.roles (
-    id SERIAL PRIMARY KEY,
-    nombre VARCHAR(50) UNIQUE NOT NULL,
-    descripcion TEXT,
-    permisos JSONB,
-    created_at TIMESTAMP DEFAULT NOW()
-);
-
-COMMENT ON TABLE public.roles IS 'Roles y permisos RBAC';
-
--- Insertar roles base
-INSERT INTO public.roles (nombre, descripcion, permisos) VALUES
-('super_admin', 'Super Administrador - Acceso total', '{"*": true}'),
-('admin_campana', 'Administrador de Campaña', '{"campanas": ["read", "write"], "votantes": ["read", "write"], "eventos": ["read", "write"]}'),
-('director', 'Director de Campaña', '{"votantes": ["read", "write"], "eventos": ["read", "write"], "reportes": ["read"]}'),
-('coordinador', 'Coordinador Territorial', '{"votantes": ["read"], "eventos": ["read"], "contactos": ["write"]}'),
-('brigadista', 'Brigadista', '{"votantes": ["read"], "contactos": ["write"]}'),
-('testigo', 'Testigo Electoral', '{"actas": ["write"], "mesas": ["read"]}')
-ON CONFLICT (nombre) DO NOTHING;
-
--- Tabla: password_reset_tokens
-CREATE TABLE IF NOT EXISTS public.password_reset_tokens (
-    email VARCHAR(100) PRIMARY KEY,
-    token VARCHAR(255) NOT NULL,
-    created_at TIMESTAMP DEFAULT NOW()
-);
-
--- Tabla: personal_access_tokens (Laravel Sanctum)
-CREATE TABLE IF NOT EXISTS public.personal_access_tokens (
-    id BIGSERIAL PRIMARY KEY,
-    tokenable_type VARCHAR(255) NOT NULL,
-    tokenable_id BIGINT NOT NULL,
-    name VARCHAR(255) NOT NULL,
-    token VARCHAR(64) UNIQUE NOT NULL,
-    abilities TEXT,
-    last_used_at TIMESTAMP,
-    expires_at TIMESTAMP,
-    created_at TIMESTAMP DEFAULT NOW(),
-    updated_at TIMESTAMP DEFAULT NOW()
-);
-
-CREATE INDEX idx_pat_tokenable ON public.personal_access_tokens(tokenable_type, tokenable_id);
-
--- Tabla: sessions
-CREATE TABLE IF NOT EXISTS public.sessions (
-    id VARCHAR(255) PRIMARY KEY,
-    user_id BIGINT,
-    ip_address VARCHAR(45),
-    user_agent TEXT,
-    payload TEXT NOT NULL,
-    last_activity INTEGER NOT NULL
-);
-
-CREATE INDEX idx_sessions_user_id ON public.sessions(user_id);
-CREATE INDEX idx_sessions_last_activity ON public.sessions(last_activity);
-
--- ============================================
--- ESQUEMA ELECTORAL - TABLAS BÁSICAS
--- ============================================
-
--- Tabla: departamentos
-CREATE TABLE IF NOT EXISTS electoral.departamentos (
-    id SERIAL PRIMARY KEY,
-    codigo VARCHAR(10) UNIQUE NOT NULL,
-    nombre VARCHAR(100) NOT NULL,
-    region VARCHAR(50),
-    created_at TIMESTAMP DEFAULT NOW()
-);
-
-COMMENT ON TABLE electoral.departamentos IS '32 departamentos de Colombia + Bogotá DC';
-
--- Tabla: municipios
-CREATE TABLE IF NOT EXISTS electoral.municipios (
-    id SERIAL PRIMARY KEY,
-    departamento_id INTEGER NOT NULL REFERENCES electoral.departamentos(id),
-    codigo VARCHAR(10) UNIQUE NOT NULL,
-    nombre VARCHAR(100) NOT NULL,
-    tipo VARCHAR(20), -- 'municipio', 'distrito', 'corregimiento'
-    poblacion INTEGER,
-    created_at TIMESTAMP DEFAULT NOW()
-);
-
-COMMENT ON TABLE electoral.municipios IS '1,102 municipios de Colombia';
-
-CREATE INDEX idx_municipios_departamento ON electoral.municipios(departamento_id);
-
--- Tabla: campanas
-CREATE TABLE IF NOT EXISTS electoral.campanas (
-    id SERIAL PRIMARY KEY,
-    nombre VARCHAR(200) NOT NULL,
-    tipo_eleccion VARCHAR(50) NOT NULL,
-    candidato_principal VARCHAR(200),
-    partido VARCHAR(100),
-    color_campana VARCHAR(7),
-    logo_url VARCHAR(500),
-    fecha_inicio DATE,
-    fecha_fin DATE,
-    estado VARCHAR(20) DEFAULT 'activa',
-    created_at TIMESTAMP DEFAULT NOW(),
-    updated_at TIMESTAMP DEFAULT NOW()
-);
-
-COMMENT ON TABLE electoral.campanas IS 'Campañas políticas (multi-tenant)';
-COMMENT ON COLUMN electoral.campanas.tipo_eleccion IS 'Tipos: senado, camara, gobernacion, alcaldia, asamblea, concejo, jal';
-
-CREATE INDEX idx_campanas_estado ON electoral.campanas(estado);
+--
+-- NOTA: users/roles/password_reset_tokens/personal_access_tokens/sessions
+-- y las tablas electoral.* que vivían aquí se eliminaron de este script.
+-- Eran un modelo de datos distinto y ya abandonado (columnas en español,
+-- "rol" como texto suelto en vez de FK a roles, tablas en un schema
+-- "electoral" separado) que chocaba directamente con las migraciones
+-- reales de Laravel (backend-core/database/migrations), las cuales usan
+-- nombres/columnas distintos y viven todas en el schema public. Con este
+-- script tal como estaba, "docker compose up" + "php artisan migrate"
+-- fallaba siempre en un volumen nuevo con "relation already exists" en
+-- la primera migración -- este era justamente el bloqueo que ya
+-- documentaba PLAN-RECUPERACION.md ("Docker Compose no levanta servicios
+-- correctamente"). Las migraciones de Laravel son la única fuente de
+-- verdad del esquema; este script solo debe preparar extensiones y los
+-- schemas adicionales que sí usa backend-diad (TypeORM, DB_SCHEMA=diad).
 
 -- ============================================
 -- GRANTS Y PERMISOS
@@ -200,9 +86,8 @@ GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA analytics TO postgres;
 -- ============================================
 DO $$
 BEGIN
-    RAISE NOTICE '✅ Base de datos electoral_platform inicializada correctamente';
+    RAISE NOTICE '✅ Extensiones y schemas preparados para electoral_platform';
     RAISE NOTICE '✅ Schemas creados: electoral, crm, compliance, diad, communication, analytics';
-    RAISE NOTICE '✅ Extensiones PostGIS habilitadas';
-    RAISE NOTICE '✅ Tablas sistema creadas (users, roles, sessions)';
-    RAISE NOTICE '✅ Roles base insertados (6 roles)';
+    RAISE NOTICE '✅ Extensiones PostGIS/uuid-ossp/pgcrypto habilitadas';
+    RAISE NOTICE 'ℹ️  Tablas y datos: correr "php artisan migrate --seed" en backend-core';
 END $$;

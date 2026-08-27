@@ -24,10 +24,7 @@ export class ActasController {
   @Post()
   @UseInterceptors(FileInterceptor('imagen'))
   @HttpCode(HttpStatus.CREATED)
-  async create(
-    @UploadedFile() file: Express.Multer.File,
-    @Body() createActaDto: CreateActaDto,
-  ) {
+  async create(@UploadedFile() file: Express.Multer.File, @Body() createActaDto: CreateActaDto) {
     return this.actasService.create(createActaDto, file);
   }
 

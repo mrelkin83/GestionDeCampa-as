@@ -30,8 +30,6 @@ return new class extends Migration
             $table->timestamps();
             $table->softDeletes();
 
-            $table->index('document_number');
-            $table->index('email');
             $table->index('is_active');
         });
 
@@ -56,7 +54,6 @@ return new class extends Migration
             $table->timestamp('expires_at')->nullable();
             $table->timestamps();
 
-            $table->index(['tokenable_type', 'tokenable_id']);
         });
 
         // Password reset tokens

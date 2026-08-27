@@ -1,26 +1,27 @@
 import { useState, FormEvent } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { LogIn } from 'lucide-react'
+import { useAuth } from '@/contexts/AuthContext'
 
 export default function Login() {
+  const navigate = useNavigate()
+  const { login } = useAuth()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
+    setError(null)
     setLoading(true)
 
     try {
-      // TODO: Implementar llamada a API
-      console.log('Login:', { email, password })
-
-      // Simular delay
-      await new Promise(resolve => setTimeout(resolve, 1000))
-
-      // Redirect to dashboard
-      window.location.href = '/dashboard'
-    } catch (error) {
-      console.error('Error en login:', error)
+      await login(email, password)
+      navigate('/dashboard', { replace: true })
+    } catch (err) {
+      const message = (err as { response?: { data?: { message?: string } } })?.response?.data?.message
+      setError(message || 'Credenciales incorrectas. Verifica tu correo y contraseña.')
     } finally {
       setLoading(false)
     }
@@ -40,6 +41,11 @@ export default function Login() {
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-6">
+            {error && (
+              <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg px-4 py-3">
+                {error}
+              </div>
+            )}
             <div>
               <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
                 Correo Electrónico
@@ -102,14 +108,6 @@ export default function Login() {
             </button>
           </form>
 
-          <div className="mt-6 text-center">
-            <p className="text-sm text-gray-600">
-              ¿No tienes una cuenta?{' '}
-              <a href="/register" className="text-primary-600 hover:text-primary-700 font-medium">
-                Regístrate aquí
-              </a>
-            </p>
-          </div>
         </div>
 
         <div className="mt-6 text-center text-sm text-gray-600">

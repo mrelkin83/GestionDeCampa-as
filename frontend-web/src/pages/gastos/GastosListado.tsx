@@ -8,8 +8,7 @@ import {
   CheckCircle,
   XCircle,
   Banknote,
-  Filter,
-  FolderOpen
+  Filter
 } from 'lucide-react'
 import MainLayout from '@/components/layout/MainLayout'
 import Badge from '@/components/ui/Badge'
@@ -17,9 +16,11 @@ import Table from '@/components/ui/Table'
 import Pagination from '@/components/ui/Pagination'
 import { gastosAPI } from '@/lib/api'
 import { Gasto, GastoPagination, EstadisticasGastos } from '@/types/gasto'
+import { useActiveCampana } from '@/hooks/useActiveCampana'
 
 export default function GastosListado() {
   const navigate = useNavigate()
+  const { campanaId } = useActiveCampana()
   const [gastos, setGastos] = useState<Gasto[]>([])
   const [pagination, setPagination] = useState<GastoPagination | null>(null)
   const [estadisticas, setEstadisticas] = useState<EstadisticasGastos | null>(null)
@@ -28,26 +29,29 @@ export default function GastosListado() {
 
   const [filtros, setFiltros] = useState({
     estado: '',
-    categoria_id: '',
+    categoria: '',
     search: '',
     page: 1
   })
 
   useEffect(() => {
-    fetchData()
-  }, [filtros])
+    if (campanaId) {
+      fetchData()
+    }
+  }, [filtros, campanaId])
 
   const fetchData = async () => {
     try {
       setLoading(true)
       const [gastosRes, estadisticasRes] = await Promise.all([
         gastosAPI.getAll({
+          campana_id: campanaId,
           estado: filtros.estado || undefined,
-          categoria_id: filtros.categoria_id || undefined,
+          categoria: filtros.categoria || undefined,
           search: filtros.search || undefined,
           page: filtros.page
         }),
-        gastosAPI.estadisticas()
+        gastosAPI.estadisticas({ campana_id: campanaId })
       ])
       setGastos(gastosRes.data || [])
       setPagination(gastosRes)
@@ -101,7 +105,7 @@ export default function GastosListado() {
   }
 
   const limpiarFiltros = () => {
-    setFiltros({ estado: '', categoria_id: '', search: '', page: 1 })
+    setFiltros({ estado: '', categoria: '', search: '', page: 1 })
   }
 
   const getEstadoBadge = (estado: string) => {
@@ -110,9 +114,21 @@ export default function GastosListado() {
       aprobado: { text: 'Aprobado', variant: 'info' as const },
       rechazado: { text: 'Rechazado', variant: 'danger' as const },
       pagado: { text: 'Pagado', variant: 'success' as const },
+      reportado_cne: { text: 'Reportado CNE', variant: 'info' as const },
     }
     const config = badges[estado as keyof typeof badges] || badges.pendiente
     return <Badge variant={config.variant}>{config.text}</Badge>
+  }
+
+  const CATEGORIA_LABELS: Record<string, string> = {
+    publicidad: 'Publicidad',
+    eventos: 'Eventos',
+    logistica: 'Logística',
+    personal: 'Personal',
+    materiales: 'Materiales',
+    transporte: 'Transporte',
+    servicios_profesionales: 'Servicios Profesionales',
+    otro: 'Otro',
   }
 
   const formatMonto = (monto: number) => {
@@ -139,12 +155,12 @@ export default function GastosListado() {
       accessor: (row: Gasto) => formatDate(row.fecha_gasto),
     },
     {
-      header: 'Concepto',
-      accessor: (row: Gasto) => row.concepto,
+      header: 'Descripción',
+      accessor: (row: Gasto) => row.descripcion,
     },
     {
       header: 'Categoría',
-      accessor: (row: Gasto) => row.categoria?.nombre || '-',
+      accessor: (row: Gasto) => CATEGORIA_LABELS[row.categoria] || row.categoria,
     },
     {
       header: 'Proveedor',
@@ -221,13 +237,6 @@ export default function GastosListado() {
           </div>
           <div className="flex gap-3">
             <button
-              onClick={() => navigate('/gastos/presupuesto')}
-              className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
-            >
-              <FolderOpen className="w-5 h-5" />
-              <span>Presupuesto</span>
-            </button>
-            <button
               onClick={() => navigate('/gastos/nuevo')}
               className="flex items-center gap-2 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700"
             >
@@ -240,20 +249,20 @@ export default function GastosListado() {
         {/* Alertas */}
         {estadisticas && (
           <>
-            {estadisticas.categorias_sobre_presupuesto > 0 && (
+            {estadisticas.topes_legales?.limite_excedido && (
               <div className="bg-red-50 border border-red-200 rounded-lg p-4 flex items-start gap-3">
                 <AlertTriangle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
                 <div>
                   <p className="text-sm font-medium text-red-900">
-                    Alerta de Sobregasto
+                    Tope Legal de Gastos Excedido
                   </p>
                   <p className="text-sm text-red-700 mt-1">
-                    {estadisticas.categorias_sobre_presupuesto} categoría(s) han excedido el presupuesto asignado.
+                    El gasto acumulado supera el tope legal permitido para esta campaña.
                   </p>
                 </div>
               </div>
             )}
-            {estadisticas.gastos_pendientes_aprobacion > 0 && (
+            {estadisticas.resumen.pendientes_aprobacion > 0 && (
               <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 flex items-start gap-3">
                 <AlertTriangle className="w-5 h-5 text-yellow-600 flex-shrink-0 mt-0.5" />
                 <div>
@@ -261,7 +270,7 @@ export default function GastosListado() {
                     Gastos Pendientes de Aprobación
                   </p>
                   <p className="text-sm text-yellow-700 mt-1">
-                    Hay {estadisticas.gastos_pendientes_aprobacion} gasto(s) esperando aprobación.
+                    Hay {estadisticas.resumen.pendientes_aprobacion} gasto(s) esperando aprobación.
                   </p>
                 </div>
               </div>
@@ -278,47 +287,48 @@ export default function GastosListado() {
                 <p className="text-sm opacity-90">Total Gastado</p>
               </div>
               <p className="text-3xl font-bold">
-                {formatMonto(estadisticas.ejecutado_total)}
+                {formatMonto(estadisticas.resumen.total_gastado)}
               </p>
               <p className="text-xs opacity-75 mt-1">
-                {estadisticas.total_gastos} gastos
+                {estadisticas.resumen.numero_gastos} gastos
               </p>
             </div>
 
-            <div className="bg-white rounded-lg shadow p-6">
-              <div className="flex items-center gap-2 mb-2">
-                <DollarSign className="w-5 h-5 text-blue-600" />
-                <p className="text-sm text-gray-600">Presupuesto Total</p>
+            {estadisticas.topes_legales && (
+              <div className="bg-white rounded-lg shadow p-6">
+                <div className="flex items-center gap-2 mb-2">
+                  <DollarSign className="w-5 h-5 text-blue-600" />
+                  <p className="text-sm text-gray-600">Tope Legal</p>
+                </div>
+                <p className="text-2xl font-bold text-gray-900">
+                  {formatMonto(estadisticas.topes_legales.limite_total)}
+                </p>
+                <p className="text-xs text-gray-500 mt-1">Asignado</p>
               </div>
-              <p className="text-2xl font-bold text-gray-900">
-                {formatMonto(estadisticas.presupuesto_total)}
-              </p>
-              <p className="text-xs text-gray-500 mt-1">Asignado</p>
-            </div>
+            )}
 
-            <div className="bg-white rounded-lg shadow p-6">
-              <div className="flex items-center gap-2 mb-2">
-                <DollarSign className="w-5 h-5 text-green-600" />
-                <p className="text-sm text-gray-600">Disponible</p>
+            {estadisticas.topes_legales && (
+              <div className="bg-white rounded-lg shadow p-6">
+                <div className="flex items-center gap-2 mb-2">
+                  <DollarSign className="w-5 h-5 text-green-600" />
+                  <p className="text-sm text-gray-600">Disponible</p>
+                </div>
+                <p className="text-2xl font-bold text-gray-900">
+                  {formatMonto(estadisticas.topes_legales.disponible)}
+                </p>
+                <p className="text-xs text-gray-500 mt-1">
+                  {estadisticas.topes_legales.porcentaje_usado.toFixed(1)}% usado
+                </p>
               </div>
-              <p className="text-2xl font-bold text-gray-900">
-                {formatMonto(estadisticas.disponible_total)}
-              </p>
-              <p className="text-xs text-gray-500 mt-1">
-                {estadisticas.porcentaje_ejecutado.toFixed(1)}% ejecutado
-              </p>
-            </div>
+            )}
 
             <div className="bg-white rounded-lg shadow p-6">
               <div className="flex items-center gap-2 mb-2">
                 <AlertTriangle className="w-5 h-5 text-orange-600" />
-                <p className="text-sm text-gray-600">Este Mes</p>
+                <p className="text-sm text-gray-600">Promedio por Gasto</p>
               </div>
               <p className="text-2xl font-bold text-gray-900">
-                {formatMonto(estadisticas.mes_actual)}
-              </p>
-              <p className="text-xs text-gray-500 mt-1">
-                vs. {formatMonto(estadisticas.mes_anterior)} mes anterior
+                {formatMonto(estadisticas.resumen.promedio_gasto)}
               </p>
             </div>
           </div>
@@ -335,7 +345,7 @@ export default function GastosListado() {
               <span>Filtros</span>
             </button>
 
-            {(filtros.estado || filtros.categoria_id || filtros.search) && (
+            {(filtros.estado || filtros.categoria || filtros.search) && (
               <button
                 onClick={limpiarFiltros}
                 className="text-sm text-primary-600 hover:text-primary-700"
@@ -374,6 +384,7 @@ export default function GastosListado() {
                   <option value="aprobado">Aprobado</option>
                   <option value="rechazado">Rechazado</option>
                   <option value="pagado">Pagado</option>
+                  <option value="reportado_cne">Reportado CNE</option>
                 </select>
               </div>
 
@@ -382,12 +393,14 @@ export default function GastosListado() {
                   Categoría
                 </label>
                 <select
-                  value={filtros.categoria_id}
-                  onChange={(e) => handleFiltroChange('categoria_id', e.target.value)}
+                  value={filtros.categoria}
+                  onChange={(e) => handleFiltroChange('categoria', e.target.value)}
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                 >
                   <option value="">Todas</option>
-                  {/* Categories will be loaded dynamically */}
+                  {Object.entries(CATEGORIA_LABELS).map(([value, label]) => (
+                    <option key={value} value={value}>{label}</option>
+                  ))}
                 </select>
               </div>
             </div>

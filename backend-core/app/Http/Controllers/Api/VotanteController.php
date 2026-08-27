@@ -217,7 +217,11 @@ class VotanteController extends Controller
             ], 422);
         }
 
-        $votante->update(array_merge($request->all(), [
+        // Solo campos validados arriba -pasar $request->all() permitía
+        // reescribir documento/tipo_documento/nombres/campana_id/
+        // es_verificado/etc. (todos fillable), es decir alterar la
+        // identidad de un votante o su verificación desde este endpoint.
+        $votante->update(array_merge($validator->validated(), [
             'ultima_actualizacion_datos' => now(),
         ]));
 
@@ -242,6 +246,14 @@ class VotanteController extends Controller
                 'success' => false,
                 'message' => 'Votante no encontrado',
             ], 404);
+        }
+
+        $user = $request->user();
+        if ($user->role->name !== 'super_admin' && !$user->hasAccessToCampana($votante->campana_id)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'No tiene acceso a este votante',
+            ], 403);
         }
 
         $validator = Validator::make($request->all(), [
@@ -299,15 +311,15 @@ class VotanteController extends Controller
         }
 
         $stats = [
-            'total_votantes' => Votante::campana($campanaId)->activos()->count(),
+            'total_votantes' => Votante::where('campana_id', $campanaId)->activos()->count(),
             'por_intencion_voto' => [
-                'a_favor' => Votante::campana($campanaId)->intencionVoto('a_favor')->count(),
-                'en_contra' => Votante::campana($campanaId)->intencionVoto('en_contra')->count(),
-                'indeciso' => Votante::campana($campanaId)->intencionVoto('indeciso')->count(),
-                'sin_definir' => Votante::campana($campanaId)->intencionVoto('sin_definir')->count(),
+                'a_favor' => Votante::where('campana_id', $campanaId)->intencionVoto('a_favor')->count(),
+                'en_contra' => Votante::where('campana_id', $campanaId)->intencionVoto('en_contra')->count(),
+                'indeciso' => Votante::where('campana_id', $campanaId)->intencionVoto('indeciso')->count(),
+                'sin_definir' => Votante::where('campana_id', $campanaId)->intencionVoto('sin_definir')->count(),
             ],
-            'lideres' => Votante::campana($campanaId)->lideres()->count(),
-            'scoring_promedio' => round(Votante::campana($campanaId)->avg('scoring'), 2),
+            'lideres' => Votante::where('campana_id', $campanaId)->lideres()->count(),
+            'scoring_promedio' => round(Votante::where('campana_id', $campanaId)->avg('scoring') ?? 0, 2),
             'contactos_ultimo_mes' => Contacto::where('campana_id', $campanaId)
                 ->where('created_at', '>=', now()->subMonth())
                 ->count(),
@@ -316,6 +328,42 @@ class VotanteController extends Controller
         return response()->json([
             'success' => true,
             'data' => $stats,
+        ], 200);
+    }
+
+    /**
+     * Historial de contactos de un votante. registrarContacto() ya existía
+     * y funcionaba, pero no había ningún endpoint para listar el historial
+     * -el frontend siempre mostraba "No hay contactos registrados" y el
+     * botón para registrar uno nuevo no tenía onClick.
+     */
+    public function listarContactos(Request $request, int $id): JsonResponse
+    {
+        $votante = Votante::find($id);
+
+        if (!$votante) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Votante no encontrado',
+            ], 404);
+        }
+
+        $user = $request->user();
+        if ($user->role->name !== 'super_admin' && !$user->hasAccessToCampana($votante->campana_id)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'No tiene acceso a este votante',
+            ], 403);
+        }
+
+        $contactos = Contacto::where('votante_id', $id)
+            ->with('user:id,first_name,last_name')
+            ->orderByDesc('created_at')
+            ->get();
+
+        return response()->json([
+            'success' => true,
+            'data' => $contactos,
         ], 200);
     }
 }

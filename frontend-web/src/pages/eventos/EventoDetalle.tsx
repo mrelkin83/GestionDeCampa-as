@@ -36,8 +36,9 @@ export default function EventoDetalle() {
       setLoading(true)
       const response = await eventosAPI.getById(Number(id))
       setEvento(response.data)
-      // TODO: Cargar asistencias desde API
-      setAsistencias([])
+
+      const asistenciasResponse = await eventosAPI.getAsistencias(Number(id))
+      setAsistencias(asistenciasResponse.data || [])
     } catch (error) {
       console.error('Error cargando evento:', error)
     } finally {
@@ -45,15 +46,20 @@ export default function EventoDetalle() {
     }
   }
 
-  const handleDelete = async () => {
-    if (!confirm('¿Estás seguro de eliminar este evento?')) return
+  // No existe (ni existió nunca) DELETE /eventos/{id} en el backend -este
+  // botón siempre fallaba al presionarlo. Igual que Gastos/Donaciones/
+  // Votantes, Eventos no soporta borrado físico (se preserva el historial);
+  // la acción real equivalente es marcarlo 'cancelado' vía update(), que sí
+  // existe y ya valida ese campo.
+  const handleCancelar = async () => {
+    if (!confirm('¿Estás seguro de cancelar este evento?')) return
 
     try {
-      await eventosAPI.delete(Number(id))
-      navigate('/eventos')
+      await eventosAPI.update(Number(id), { estado: 'cancelado' })
+      await loadEvento()
     } catch (error) {
-      console.error('Error eliminando evento:', error)
-      alert('Error al eliminar evento')
+      console.error('Error cancelando evento:', error)
+      alert('Error al cancelar evento')
     }
   }
 
@@ -63,6 +69,7 @@ export default function EventoDetalle() {
       mitin: { text: 'Mitin', variant: 'success' as const },
       puerta_puerta: { text: 'Puerta a Puerta', variant: 'warning' as const },
       capacitacion: { text: 'Capacitación', variant: 'default' as const },
+      movilizacion: { text: 'Movilización', variant: 'info' as const },
       otro: { text: 'Otro', variant: 'default' as const },
     }
     const config = badges[tipo as keyof typeof badges] || badges.otro
@@ -96,12 +103,12 @@ export default function EventoDetalle() {
     {
       header: 'Votante',
       accessor: (row: EventoAsistencia) => row.votante
-        ? `${row.votante.nombre} ${row.votante.apellido}`
+        ? `${row.votante.primer_nombre} ${row.votante.primer_apellido}`
         : '-',
     },
     {
-      header: 'Cédula',
-      accessor: (row: EventoAsistencia) => row.votante?.cedula || '-',
+      header: 'Documento',
+      accessor: (row: EventoAsistencia) => row.votante?.documento || '-',
     },
     {
       header: 'Teléfono',
@@ -175,13 +182,15 @@ export default function EventoDetalle() {
               <Edit className="w-5 h-5" />
               <span>Editar</span>
             </button>
-            <button
-              onClick={handleDelete}
-              className="flex items-center gap-2 px-4 py-2 border border-red-300 text-red-600 rounded-lg hover:bg-red-50"
-            >
-              <Trash2 className="w-5 h-5" />
-              <span>Eliminar</span>
-            </button>
+            {evento.estado !== 'cancelado' && (
+              <button
+                onClick={handleCancelar}
+                className="flex items-center gap-2 px-4 py-2 border border-red-300 text-red-600 rounded-lg hover:bg-red-50"
+              >
+                <Trash2 className="w-5 h-5" />
+                <span>Cancelar Evento</span>
+              </button>
+            )}
           </div>
         </div>
 
@@ -245,12 +254,12 @@ export default function EventoDetalle() {
                 </div>
               </div>
 
-              {evento.ubicacion && (
+              {evento.ubicacion_nombre && (
                 <div className="flex items-start gap-3">
                   <MapPin className="w-5 h-5 text-gray-400 mt-0.5" />
                   <div>
                     <p className="text-sm text-gray-600">Ubicación</p>
-                    <p className="font-medium text-gray-900">{evento.ubicacion}</p>
+                    <p className="font-medium text-gray-900">{evento.ubicacion_nombre}</p>
                     {evento.direccion && (
                       <p className="text-sm text-gray-600">{evento.direccion}</p>
                     )}

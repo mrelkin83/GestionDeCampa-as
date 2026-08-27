@@ -25,9 +25,9 @@ class Mensaje extends Model
         'fecha_apertura',
         'fecha_click',
         'proveedor',
-        'id_externo',
+        'mensaje_id_externo',
         'error_mensaje',
-        'metadata',
+        'metadata_proveedor',
     ];
 
     protected $casts = [
@@ -35,7 +35,7 @@ class Mensaje extends Model
         'fecha_entrega' => 'datetime',
         'fecha_apertura' => 'datetime',
         'fecha_click' => 'datetime',
-        'metadata' => 'array',
+        'metadata_proveedor' => 'array',
     ];
 
     public function campanaComunicacion(): BelongsTo

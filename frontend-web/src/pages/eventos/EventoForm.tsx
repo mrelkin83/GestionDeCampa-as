@@ -4,11 +4,13 @@ import { Save, X, Loader } from 'lucide-react'
 import MainLayout from '@/components/layout/MainLayout'
 import { eventosAPI } from '@/lib/api'
 import { Evento } from '@/types/evento'
+import { useActiveCampana } from '@/hooks/useActiveCampana'
 
 export default function EventoForm() {
   const { id } = useParams()
   const navigate = useNavigate()
   const isEdit = !!id
+  const { campanaId } = useActiveCampana()
 
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -19,7 +21,7 @@ export default function EventoForm() {
     tipo: 'reunion',
     fecha_inicio: '',
     fecha_fin: '',
-    ubicacion: '',
+    ubicacion_nombre: '',
     direccion: '',
     capacidad_maxima: undefined,
     requiere_confirmacion: true,
@@ -57,10 +59,12 @@ export default function EventoForm() {
     setSaving(true)
 
     try {
+      const payload = { ...formData, campana_id: campanaId }
+
       if (isEdit) {
-        await eventosAPI.update(Number(id), formData)
+        await eventosAPI.update(Number(id), payload)
       } else {
-        await eventosAPI.create(formData)
+        await eventosAPI.create(payload)
       }
       navigate('/eventos')
     } catch (error: any) {
@@ -145,6 +149,7 @@ export default function EventoForm() {
                       <option value="mitin">Mitin</option>
                       <option value="puerta_puerta">Puerta a Puerta</option>
                       <option value="capacitacion">Capacitación</option>
+                      <option value="movilizacion">Movilización</option>
                       <option value="otro">Otro</option>
                     </select>
                   </div>
@@ -217,8 +222,8 @@ export default function EventoForm() {
                   </label>
                   <input
                     type="text"
-                    name="ubicacion"
-                    value={formData.ubicacion || ''}
+                    name="ubicacion_nombre"
+                    value={formData.ubicacion_nombre || ''}
                     onChange={handleChange}
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                     placeholder="Ej: Salón Comunal Barrio Norte"

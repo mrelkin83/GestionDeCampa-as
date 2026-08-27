@@ -3,10 +3,10 @@ export interface Evento {
   campana_id: number
   nombre: string
   descripcion?: string
-  tipo: 'reunion' | 'mitin' | 'puerta_puerta' | 'capacitacion' | 'otro'
+  tipo: 'reunion' | 'mitin' | 'puerta_puerta' | 'capacitacion' | 'movilizacion' | 'otro'
   fecha_inicio: string
   fecha_fin: string
-  ubicacion?: string
+  ubicacion_nombre?: string
   direccion?: string
   latitud?: number
   longitud?: number
@@ -39,9 +39,9 @@ export interface EventoAsistencia {
   // Relaciones
   votante?: {
     id: number
-    cedula: string
-    nombre: string
-    apellido: string
+    documento: string
+    primer_nombre: string
+    primer_apellido: string
     celular?: string
   }
 }

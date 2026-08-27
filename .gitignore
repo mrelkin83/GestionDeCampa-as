@@ -52,6 +52,8 @@ backend-core/storage/framework/sessions/*
 !backend-core/storage/framework/sessions/.gitkeep
 backend-core/storage/framework/views/*
 !backend-core/storage/framework/views/.gitkeep
+backend-core/storage/app/public/*
+!backend-core/storage/app/public/.gitkeep
 backend-core/bootstrap/cache/*
 !backend-core/bootstrap/cache/.gitkeep
 backend-core/public/storage

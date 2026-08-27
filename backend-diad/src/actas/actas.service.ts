@@ -1,8 +1,10 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { InjectQueue } from '@nestjs/bull';
 import { Queue } from 'bull';
+import { ConfigService } from '@nestjs/config';
+import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
 import { Acta } from './entities/acta.entity';
 import { CreateActaDto } from './dto/create-acta.dto';
 import { UpdateActaDto } from './dto/update-acta.dto';
@@ -11,12 +13,15 @@ import { ActasGateway } from './actas.gateway';
 
 @Injectable()
 export class ActasService {
+  private readonly logger = new Logger(ActasService.name);
+
   constructor(
     @InjectRepository(Acta)
     private readonly actaRepository: Repository<Acta>,
     @InjectQueue('actas')
     private readonly actasQueue: Queue,
     private readonly actasGateway: ActasGateway,
+    private readonly configService: ConfigService,
   ) {}
 
   async create(createActaDto: CreateActaDto, file?: Express.Multer.File) {
@@ -153,9 +158,36 @@ export class ActasService {
   }
 
   private async uploadToS3(file: Express.Multer.File): Promise<string> {
-    // TODO: Implement S3 upload
-    // For now, return placeholder
-    const timestamp = Date.now();
-    return `https://s3.amazonaws.com/electoral-actas/actas/${timestamp}-${file.originalname}`;
+    const region = this.configService.get<string>('AWS_REGION', 'us-east-1');
+    const bucket = this.configService.get<string>('AWS_S3_BUCKET_ACTAS');
+    const accessKeyId = this.configService.get<string>('AWS_ACCESS_KEY_ID');
+    const secretAccessKey = this.configService.get<string>('AWS_SECRET_ACCESS_KEY');
+
+    if (!bucket || !accessKeyId || !secretAccessKey) {
+      // Sin credenciales no hay forma real de subir el archivo: antes esto
+      // devolvía una URL falsa (https://s3.amazonaws.com/.../{timestamp}-...)
+      // que nunca apuntaba a nada real, perdiendo silenciosamente la foto del
+      // acta. Es preferible fallar la petición explícitamente.
+      this.logger.error(
+        '❌ Credenciales de S3 no configuradas: no se puede subir la evidencia del acta',
+      );
+      throw new BadRequestException(
+        'El almacenamiento de evidencias no está configurado en el servidor',
+      );
+    }
+
+    const client = new S3Client({ region, credentials: { accessKeyId, secretAccessKey } });
+    const key = `actas/${Date.now()}-${file.originalname}`;
+
+    await client.send(
+      new PutObjectCommand({
+        Bucket: bucket,
+        Key: key,
+        Body: file.buffer,
+        ContentType: file.mimetype,
+      }),
+    );
+
+    return `https://${bucket}.s3.${region}.amazonaws.com/${key}`;
   }
 }

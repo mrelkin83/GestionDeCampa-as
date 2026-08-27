@@ -5,20 +5,24 @@ import MainLayout from '@/components/layout/MainLayout'
 import Badge from '@/components/ui/Badge'
 import { segmentosAPI } from '@/lib/api'
 import { Segmento } from '@/types/votante'
+import { useActiveCampana } from '@/hooks/useActiveCampana'
 
 export default function SegmentosListado() {
   const navigate = useNavigate()
+  const { campanaId } = useActiveCampana()
   const [segmentos, setSegmentos] = useState<Segmento[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    fetchSegmentos()
-  }, [])
+    if (campanaId) {
+      fetchSegmentos()
+    }
+  }, [campanaId])
 
   const fetchSegmentos = async () => {
     try {
       setLoading(true)
-      const response = await segmentosAPI.getAll()
+      const response = await segmentosAPI.getAll({ campana_id: campanaId })
       setSegmentos(response.data || [])
     } catch (error) {
       console.error('Error al cargar segmentos:', error)

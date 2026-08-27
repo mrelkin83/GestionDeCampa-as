@@ -13,21 +13,26 @@ import MainLayout from '@/components/layout/MainLayout'
 import Badge from '@/components/ui/Badge'
 import { campanasAPI } from '@/lib/api'
 import { Campana } from '@/types/comunicacion'
+import { useActiveCampana } from '@/hooks/useActiveCampana'
 
 export default function CampanasListado() {
   const navigate = useNavigate()
+  const { campanaId } = useActiveCampana()
   const [campanas, setCampanas] = useState<Campana[]>([])
   const [loading, setLoading] = useState(true)
   const [filtroEstado, setFiltroEstado] = useState<string>('')
 
   useEffect(() => {
-    fetchCampanas()
-  }, [filtroEstado])
+    if (campanaId) {
+      fetchCampanas()
+    }
+  }, [filtroEstado, campanaId])
 
   const fetchCampanas = async () => {
     try {
       setLoading(true)
       const response = await campanasAPI.getAll({
+        campana_id: campanaId,
         estado: filtroEstado || undefined
       })
       setCampanas(response.data || [])
@@ -42,7 +47,7 @@ export default function CampanasListado() {
     const badges = {
       borrador: { text: 'Borrador', variant: 'default' as const },
       programada: { text: 'Programada', variant: 'info' as const },
-      en_proceso: { text: 'En Proceso', variant: 'warning' as const },
+      enviando: { text: 'En Proceso', variant: 'warning' as const },
       completada: { text: 'Completada', variant: 'success' as const },
       cancelada: { text: 'Cancelada', variant: 'danger' as const },
     }
@@ -131,7 +136,7 @@ export default function CampanasListado() {
               <p className="text-sm text-gray-600">En Proceso</p>
             </div>
             <p className="text-2xl font-bold text-orange-600">
-              {campanas.filter(c => c.estado === 'en_proceso').length}
+              {campanas.filter(c => c.estado === 'enviando').length}
             </p>
           </div>
           <div className="bg-white rounded-lg shadow p-4">
@@ -167,8 +172,8 @@ export default function CampanasListado() {
               Programadas
             </button>
             <button
-              onClick={() => setFiltroEstado('en_proceso')}
-              className={`px-4 py-2 rounded-lg ${filtroEstado === 'en_proceso' ? 'bg-primary-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
+              onClick={() => setFiltroEstado('enviando')}
+              className={`px-4 py-2 rounded-lg ${filtroEstado === 'enviando' ? 'bg-primary-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
             >
               En Proceso
             </button>
@@ -253,7 +258,7 @@ export default function CampanasListado() {
                 </div>
 
                 {/* Estadísticas */}
-                {(campana.estado === 'en_proceso' || campana.estado === 'completada') && (
+                {(campana.estado === 'enviando' || campana.estado === 'completada') && (
                   <div className="border-t border-gray-200 pt-4">
                     <div className="grid grid-cols-2 gap-4 mb-3">
                       <div>
@@ -265,19 +270,19 @@ export default function CampanasListado() {
                       <div>
                         <p className="text-xs text-gray-600">Enviados</p>
                         <p className="text-lg font-semibold text-blue-600">
-                          {campana.enviados || 0}
+                          {campana.total_enviados || 0}
                         </p>
                       </div>
                       <div>
                         <p className="text-xs text-gray-600">Entregados</p>
                         <p className="text-lg font-semibold text-green-600">
-                          {campana.entregados || 0}
+                          {campana.total_entregados || 0}
                         </p>
                       </div>
                       <div>
                         <p className="text-xs text-gray-600">Fallidos</p>
                         <p className="text-lg font-semibold text-red-600">
-                          {campana.fallidos || 0}
+                          {campana.total_fallidos || 0}
                         </p>
                       </div>
                     </div>
@@ -286,13 +291,13 @@ export default function CampanasListado() {
                     <div className="space-y-2">
                       <div className="flex justify-between text-xs text-gray-600">
                         <span>Tasa de Entrega</span>
-                        <span>{calcularTasa(campana.entregados || 0, campana.total_destinatarios || 0)}%</span>
+                        <span>{calcularTasa(campana.total_entregados || 0, campana.total_destinatarios || 0)}%</span>
                       </div>
                       <div className="w-full bg-gray-200 rounded-full h-2">
                         <div
                           className="bg-green-600 h-2 rounded-full transition-all"
                           style={{
-                            width: `${calcularTasa(campana.entregados || 0, campana.total_destinatarios || 0)}%`
+                            width: `${calcularTasa(campana.total_entregados || 0, campana.total_destinatarios || 0)}%`
                           }}
                         />
                       </div>
@@ -303,16 +308,16 @@ export default function CampanasListado() {
                 {/* Fechas */}
                 <div className="border-t border-gray-200 pt-3 mt-3">
                   <div className="grid grid-cols-2 gap-2 text-xs text-gray-600">
-                    {campana.fecha_inicio && (
+                    {campana.fecha_inicio_envio && (
                       <div>
                         <p className="font-medium">Inicio:</p>
-                        <p>{formatDate(campana.fecha_inicio)}</p>
+                        <p>{formatDate(campana.fecha_inicio_envio)}</p>
                       </div>
                     )}
-                    {campana.fecha_fin && (
+                    {campana.fecha_fin_envio && (
                       <div>
                         <p className="font-medium">Fin:</p>
-                        <p>{formatDate(campana.fecha_fin)}</p>
+                        <p>{formatDate(campana.fecha_fin_envio)}</p>
                       </div>
                     )}
                   </div>

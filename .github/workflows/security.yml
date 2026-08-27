@@ -1,0 +1,136 @@
+name: Code Quality & Security
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+  schedule:
+    - cron: '0 0 * * 0' # Weekly on Sunday
+
+jobs:
+  security-audit:
+    name: Security Audit
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          scan-ref: '.'
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+
+      - name: Upload Trivy scan results
+        uses: github/codeql-action/upload-sarif@v2
+        if: always()
+        with:
+          sarif_file: 'trivy-results.sarif'
+
+      - name: Check for secrets
+        uses: trufflesecurity/trufflehog@main
+        with:
+          path: ./
+          base: main
+          head: HEAD
+          extra_args: --debug --only-verified
+
+  dependency-check:
+    name: Dependency Check
+    runs-on: ubuntu-latest
+    
+    strategy:
+      matrix:
+        project:
+          - backend-core
+          - backend-dia-d
+          - frontend-web
+          - pwa-testigos
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        if: matrix.project != 'backend-core'
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Setup PHP
+        if: matrix.project == 'backend-core'
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+
+      - name: Check PHP dependencies
+        if: matrix.project == 'backend-core'
+        working-directory: ./backend-core
+        run: |
+          composer install
+          composer audit
+
+      - name: Check Node dependencies
+        if: matrix.project != 'backend-core'
+        working-directory: ./${{ matrix.project }}
+        run: |
+          npm ci
+          npm audit --audit-level=moderate
+
+  code-analysis:
+    name: Code Analysis
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: SonarCloud Scan
+        uses: SonarSource/sonarcloud-github-action@master
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+
+  lint:
+    name: Lint Code
+    runs-on: ubuntu-latest
+    
+    strategy:
+      matrix:
+        include:
+          - project: backend-core
+            command: composer install && vendor/bin/phpcs --standard=PSR12 app/
+          - project: backend-dia-d
+            command: npm ci && npm run lint
+          - project: frontend-web
+            command: npm ci && npm run lint
+          - project: pwa-testigos
+            command: npm ci && npm run lint
+          - project: app-movil-testigos
+            command: npm ci && npm run lint
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        if: matrix.project != 'backend-core'
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Setup PHP
+        if: matrix.project == 'backend-core'
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+
+      - name: Run Linter
+        working-directory: ./${{ matrix.project }}
+        run: ${{ matrix.command }}

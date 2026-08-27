@@ -29,6 +29,18 @@ class Segmento extends Model
         'ultima_actualizacion' => 'datetime',
     ];
 
+    protected $appends = ['tipo'];
+
+    /**
+     * Accesor de compatibilidad: el frontend y la API trabajan con
+     * tipo=dinamico|estatico (así se expuso siempre el contrato), pero la
+     * tabla solo tiene la columna booleana es_dinamico.
+     */
+    public function getTipoAttribute(): string
+    {
+        return $this->es_dinamico ? 'dinamico' : 'estatico';
+    }
+
     /**
      * Relación: Un segmento pertenece a una campaña
      */
@@ -50,8 +62,11 @@ class Segmento extends Model
      */
     public function votantes(): BelongsToMany
     {
+        // segmento_votante no tiene created_at/updated_at (solo un único
+        // 'agregado_en' con default a nivel de BD) -withTimestamps() asumía
+        // el par estándar y rompía cualquier sync()/attach()/eager-load.
         return $this->belongsToMany(Votante::class, 'segmento_votante')
-            ->withTimestamps();
+            ->withPivot('agregado_en');
     }
 
     /**

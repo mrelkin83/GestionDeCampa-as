@@ -1,0 +1,82 @@
+# Load Testing: WebSocket Connections
+#
+# Ejecutar: artillery run tests/Load/websocket-load-test.yml
+#
+# Este test verifica que el WebSocket gateway puede manejar
+# múltiples conexiones simultáneas.
+
+config:
+  target: "http://localhost:3001"
+  phases:
+    # Fase 1: 10 conexiones simultáneas
+    - duration: 30
+      arrivalRate: 10
+      name: "10 conexiones"
+    
+    # Fase 2: 50 conexiones simultáneas
+    - duration: 60
+      arrivalRate: 50
+      name: "50 conexiones"
+    
+    # Fase 3: 100 conexiones simultáneas
+    - duration: 60
+      arrivalRate: 100
+      name: "100 conexiones"
+  
+  socketio:
+    transports: ["websocket"]
+    extraHeaders:
+      Authorization: "Bearer test-token"
+
+scenarios:
+  - name: "Conexión WebSocket"
+    weight: 100
+    
+    engine: socketio
+    
+    # Emitir eventos Socket.IO
+    flow:
+      # 1. Conectar y autenticar
+      - emit:
+          channel: "authenticate"
+          data:
+            token: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.test"
+      
+      - think: 1
+      
+      # 2. Suscribirse a territorio
+      - emit:
+          channel: "subscribe"
+          data:
+            scope_type: "MESA"
+            scope_id: 1
+      
+      - think: 2
+      
+      # 3. Obtener stats
+      - emit:
+          channel: "get_stats"
+          data: {}
+      
+      - think: 2
+      
+      # 4. Ping
+      - emit:
+          channel: "ping"
+          data:
+            timestamp: "{{ $timestamp }}"
+      
+      - think: 3
+      
+      # 5. Desuscribirse
+      - emit:
+          channel: "unsubscribe"
+          data:
+            scope_type: "MESA"
+            scope_id: 1
+      
+      - think: 1
+
+# Métricas
+plugins:
+  metrics-by-endpoint: {}

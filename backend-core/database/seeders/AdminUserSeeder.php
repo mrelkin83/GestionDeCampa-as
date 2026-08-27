@@ -16,6 +16,20 @@ class AdminUserSeeder extends Seeder
      */
     public function run(): void
     {
+        // Este seeder crea 5 cuentas (incluida un super_admin) con
+        // contraseñas fijas publicadas en este mismo archivo fuente
+        // ('Admin2024!', 'Director2024!', etc.). DatabaseSeeder lo llama
+        // siempre, sin condicional -si alguien corre `php artisan db:seed`
+        // en un servidor real (patrón común, documentado en scripts/setup.sh),
+        // quedaría una puerta de entrada de super_admin con contraseña
+        // conocida públicamente en el repositorio. Mismo patrón de
+        // protección que PrecountController::getElecciones() ya usa para
+        // sus datos de ejemplo.
+        if (app()->environment('production')) {
+            $this->command->warn('⚠️  AdminUserSeeder omitido en producción: cree el usuario administrador manualmente con una contraseña real.');
+            return;
+        }
+
         $now = Carbon::now();
 
         // Obtener rol super_admin

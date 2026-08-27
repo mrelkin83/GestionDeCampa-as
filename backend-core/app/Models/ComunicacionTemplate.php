@@ -11,17 +11,19 @@ class ComunicacionTemplate extends Model
 {
     use HasFactory;
 
-    protected $table = 'comunicacion_templates';
+    protected $table = 'templates_comunicacion';
 
     protected $fillable = [
         'campana_id',
+        'created_by_id',
         'nombre',
-        'descripcion',
         'canal',
         'asunto',
         'contenido',
         'variables_disponibles',
         'activo',
+        'veces_usado',
+        'ultima_vez_usado',
     ];
 
     protected $casts = [
@@ -37,6 +39,11 @@ class ComunicacionTemplate extends Model
     public function campanasComunicacion(): HasMany
     {
         return $this->hasMany(CampanaComunicacion::class, 'template_id');
+    }
+
+    public function createdBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'created_by_id');
     }
 
     public function scopeActivos($query)

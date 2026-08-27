@@ -5,21 +5,26 @@ import MainLayout from '@/components/layout/MainLayout'
 import Badge from '@/components/ui/Badge'
 import { templatesAPI } from '@/lib/api'
 import { Template } from '@/types/comunicacion'
+import { useActiveCampana } from '@/hooks/useActiveCampana'
 
 export default function TemplatesListado() {
   const navigate = useNavigate()
+  const { campanaId } = useActiveCampana()
   const [templates, setTemplates] = useState<Template[]>([])
   const [loading, setLoading] = useState(true)
   const [filtroCanal, setFiltroCanal] = useState<string>('')
 
   useEffect(() => {
-    fetchTemplates()
-  }, [filtroCanal])
+    if (campanaId) {
+      fetchTemplates()
+    }
+  }, [filtroCanal, campanaId])
 
   const fetchTemplates = async () => {
     try {
       setLoading(true)
       const response = await templatesAPI.getAll({
+        campana_id: campanaId,
         canal: filtroCanal || undefined
       })
       setTemplates(response.data || [])
@@ -189,10 +194,6 @@ export default function TemplatesListado() {
                   </div>
                 </div>
 
-                {template.descripcion && (
-                  <p className="text-sm text-gray-600 mb-3">{template.descripcion}</p>
-                )}
-
                 {template.canal === 'email' && template.asunto && (
                   <div className="mb-2">
                     <p className="text-xs text-gray-500">Asunto:</p>
@@ -207,11 +208,11 @@ export default function TemplatesListado() {
                   </p>
                 </div>
 
-                {template.variables && template.variables.length > 0 && (
+                {template.variables_disponibles && template.variables_disponibles.length > 0 && (
                   <div className="mb-4">
                     <p className="text-xs text-gray-500 mb-1">Variables:</p>
                     <div className="flex flex-wrap gap-1">
-                      {template.variables.map((variable, idx) => (
+                      {template.variables_disponibles.map((variable, idx) => (
                         <span
                           key={idx}
                           className="px-2 py-1 bg-gray-100 text-gray-700 text-xs rounded"

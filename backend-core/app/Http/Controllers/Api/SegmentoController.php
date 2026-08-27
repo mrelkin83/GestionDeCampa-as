@@ -38,11 +38,7 @@ class SegmentoController extends Controller
             ->withCount('votantes');
 
         if ($request->has('tipo')) {
-            $query->where('tipo', $request->tipo);
-        }
-
-        if ($request->has('activos')) {
-            $query->activos();
+            $query->where('es_dinamico', $request->tipo === 'dinamico');
         }
 
         $segmentos = $query->orderBy('nombre')->get();
@@ -74,13 +70,18 @@ class SegmentoController extends Controller
             ], 422);
         }
 
-        $segmento = Segmento::create(array_merge($request->all(), [
-            'activo' => true,
+        $segmento = Segmento::create([
+            'campana_id' => $request->campana_id,
+            'created_by_id' => $request->user()->id,
+            'nombre' => $request->nombre,
+            'descripcion' => $request->descripcion,
+            'criterios' => $request->criterios,
+            'es_dinamico' => $request->tipo === 'dinamico',
             'total_votantes' => 0,
-        ]));
+        ]);
 
         // Si es dinámico, calcular votantes
-        if ($segmento->tipo === 'dinamico' && $request->has('criterios')) {
+        if ($segmento->es_dinamico && $request->has('criterios')) {
             $this->recalcularSegmento($segmento);
         }
 
@@ -137,11 +138,18 @@ class SegmentoController extends Controller
             ], 404);
         }
 
+        $user = $request->user();
+        if ($user->role->name !== 'super_admin' && !$user->hasAccessToCampana($segmento->campana_id)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'No tiene acceso a este segmento',
+            ], 403);
+        }
+
         $validator = Validator::make($request->all(), [
             'nombre' => 'sometimes|string|max:100',
             'descripcion' => 'nullable|string|max:500',
             'criterios' => 'nullable|array',
-            'activo' => 'boolean',
         ]);
 
         if ($validator->fails()) {
@@ -152,10 +160,10 @@ class SegmentoController extends Controller
             ], 422);
         }
 
-        $segmento->update($request->all());
+        $segmento->update($validator->validated());
 
         // Si se actualizaron criterios y es dinámico, recalcular
-        if ($request->has('criterios') && $segmento->tipo === 'dinamico') {
+        if ($request->has('criterios') && $segmento->es_dinamico) {
             $this->recalcularSegmento($segmento);
         }
 
@@ -180,12 +188,53 @@ class SegmentoController extends Controller
             ], 404);
         }
 
+        $user = $request->user();
+        if ($user->role->name !== 'super_admin' && !$user->hasAccessToCampana($segmento->campana_id)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'No tiene acceso a este segmento',
+            ], 403);
+        }
+
         $segmento->delete();
 
         return response()->json([
             'success' => true,
             'message' => 'Segmento eliminado exitosamente',
         ], 200);
+    }
+
+    /**
+     * Listado paginado de votantes de un segmento. Esta ruta nunca existió
+     * -segmentosAPI.getVotantes() (frontend-web) siempre apuntaba a un 404,
+     * dejando la tabla "Votantes en este Segmento" de SegmentoDetalle.tsx
+     * permanentemente vacía sin importar cuántos votantes tuviera el
+     * segmento. El frontend espera el paginador de Laravel plano (sin el
+     * envoltorio {success, data} del resto de la API), coincidiendo con el
+     * tipo VotantePagination ya declarado.
+     */
+    public function getVotantes(Request $request, int $id)
+    {
+        $segmento = Segmento::find($id);
+
+        if (!$segmento) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Segmento no encontrado',
+            ], 404);
+        }
+
+        $user = $request->user();
+        if ($user->role->name !== 'super_admin' && !$user->hasAccessToCampana($segmento->campana_id)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'No tiene acceso a este segmento',
+            ], 403);
+        }
+
+        $perPage = $request->get('per_page', 15);
+
+        return $segmento->votantes()->paginate($perPage);
     }
 
     /**
@@ -202,7 +251,15 @@ class SegmentoController extends Controller
             ], 404);
         }
 
-        if ($segmento->tipo !== 'estatico') {
+        $user = $request->user();
+        if ($user->role->name !== 'super_admin' && !$user->hasAccessToCampana($segmento->campana_id)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'No tiene acceso a este segmento',
+            ], 403);
+        }
+
+        if ($segmento->es_dinamico) {
             return response()->json([
                 'success' => false,
                 'message' => 'Solo se pueden agregar votantes manualmente a segmentos estáticos',
@@ -253,7 +310,15 @@ class SegmentoController extends Controller
             ], 404);
         }
 
-        if ($segmento->tipo !== 'estatico') {
+        $user = $request->user();
+        if ($user->role->name !== 'super_admin' && !$user->hasAccessToCampana($segmento->campana_id)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'No tiene acceso a este segmento',
+            ], 403);
+        }
+
+        if ($segmento->es_dinamico) {
             return response()->json([
                 'success' => false,
                 'message' => 'Solo se pueden remover votantes manualmente de segmentos estáticos',
@@ -304,7 +369,15 @@ class SegmentoController extends Controller
             ], 404);
         }
 
-        if ($segmento->tipo !== 'dinamico') {
+        $user = $request->user();
+        if ($user->role->name !== 'super_admin' && !$user->hasAccessToCampana($segmento->campana_id)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'No tiene acceso a este segmento',
+            ], 403);
+        }
+
+        if (!$segmento->es_dinamico) {
             return response()->json([
                 'success' => false,
                 'message' => 'Solo se pueden recalcular segmentos dinámicos',

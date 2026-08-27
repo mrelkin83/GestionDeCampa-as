@@ -3,20 +3,19 @@ import { Save, User, Mail, Phone, Lock, Camera } from 'lucide-react'
 import MainLayout from '@/components/layout/MainLayout'
 import { useAuth } from '@/contexts/AuthContext'
 import { useToast } from '@/contexts/ToastContext'
+import { authAPI } from '@/lib/api'
+import { isAxiosError } from 'axios'
 
 export default function PerfilPage() {
-  const { user } = useAuth()
+  const { user, refreshUser } = useAuth()
   const { success, error } = useToast()
   const [saving, setSaving] = useState(false)
   const [changingPassword, setChangingPassword] = useState(false)
 
   const [profileData, setProfileData] = useState({
-    name: user?.name || '',
-    email: user?.email || '',
-    phone: '',
-    bio: '',
-    cargo: '',
-    departamento: ''
+    first_name: user?.first_name || '',
+    last_name: user?.last_name || '',
+    phone: user?.phone || '',
   })
 
   const [passwordData, setPasswordData] = useState({
@@ -30,11 +29,12 @@ export default function PerfilPage() {
     setSaving(true)
 
     try {
-      // Aquí iría la llamada al API para actualizar perfil
-      await new Promise(resolve => setTimeout(resolve, 1000))
+      await authAPI.updateProfile(profileData)
+      await refreshUser()
       success('Perfil actualizado exitosamente')
     } catch (err) {
-      error('Error al actualizar perfil')
+      const message = isAxiosError(err) ? err.response?.data?.message : undefined
+      error(message || 'Error al actualizar perfil')
     } finally {
       setSaving(false)
     }
@@ -56,8 +56,7 @@ export default function PerfilPage() {
     setChangingPassword(true)
 
     try {
-      // Aquí iría la llamada al API para cambiar contraseña
-      await new Promise(resolve => setTimeout(resolve, 1000))
+      await authAPI.changePassword(passwordData)
       success('Contraseña actualizada exitosamente')
       setPasswordData({
         current_password: '',
@@ -65,7 +64,8 @@ export default function PerfilPage() {
         new_password_confirmation: ''
       })
     } catch (err) {
-      error('Error al cambiar contraseña')
+      const message = isAxiosError(err) ? err.response?.data?.message : undefined
+      error(message || 'Error al cambiar contraseña')
     } finally {
       setChangingPassword(false)
     }
@@ -88,7 +88,7 @@ export default function PerfilPage() {
             {/* Avatar */}
             <div className="relative">
               <div className="w-24 h-24 rounded-full bg-gradient-to-br from-primary-500 to-primary-600 flex items-center justify-center text-white text-3xl font-bold">
-                {user?.name?.charAt(0).toUpperCase() || 'U'}
+                {user?.full_name?.charAt(0).toUpperCase() || 'U'}
               </div>
               <button className="absolute bottom-0 right-0 p-2 bg-white rounded-full shadow-lg border border-gray-200 hover:bg-gray-50">
                 <Camera className="w-4 h-4 text-gray-600" />
@@ -97,11 +97,11 @@ export default function PerfilPage() {
 
             {/* Datos Básicos */}
             <div className="flex-1">
-              <h2 className="text-xl font-bold text-gray-900">{user?.name}</h2>
+              <h2 className="text-xl font-bold text-gray-900">{user?.full_name}</h2>
               <p className="text-gray-600">{user?.email}</p>
               <div className="mt-3">
                 <span className="inline-flex items-center px-3 py-1 bg-primary-100 text-primary-800 rounded-full text-sm font-medium">
-                  Administrador
+                  {user?.role || 'Usuario'}
                 </span>
               </div>
             </div>
@@ -119,12 +119,12 @@ export default function PerfilPage() {
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Nombre Completo *
+                  Nombres *
                 </label>
                 <input
                   type="text"
-                  value={profileData.name}
-                  onChange={(e) => setProfileData({ ...profileData, name: e.target.value })}
+                  value={profileData.first_name}
+                  onChange={(e) => setProfileData({ ...profileData, first_name: e.target.value })}
                   required
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                 />
@@ -132,22 +132,35 @@ export default function PerfilPage() {
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Email *
+                  Apellidos *
+                </label>
+                <input
+                  type="text"
+                  value={profileData.last_name}
+                  onChange={(e) => setProfileData({ ...profileData, last_name: e.target.value })}
+                  required
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Email
                 </label>
                 <div className="relative">
                   <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
                   <input
                     type="email"
-                    value={profileData.email}
-                    onChange={(e) => setProfileData({ ...profileData, email: e.target.value })}
-                    required
-                    className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                    value={user?.email || ''}
+                    disabled
+                    title="El correo no se puede modificar desde aquí. Contacte al administrador."
+                    className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-500 cursor-not-allowed"
                   />
                 </div>
               </div>
-            </div>
 
-            <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Teléfono
@@ -163,45 +176,6 @@ export default function PerfilPage() {
                   />
                 </div>
               </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Cargo
-                </label>
-                <input
-                  type="text"
-                  value={profileData.cargo}
-                  onChange={(e) => setProfileData({ ...profileData, cargo: e.target.value })}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                  placeholder="Ej: Coordinador de Campaña"
-                />
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Departamento
-              </label>
-              <input
-                type="text"
-                value={profileData.departamento}
-                onChange={(e) => setProfileData({ ...profileData, departamento: e.target.value })}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                placeholder="Ej: Comunicaciones"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Biografía
-              </label>
-              <textarea
-                value={profileData.bio}
-                onChange={(e) => setProfileData({ ...profileData, bio: e.target.value })}
-                rows={3}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                placeholder="Cuéntanos un poco sobre ti..."
-              />
             </div>
           </div>
 

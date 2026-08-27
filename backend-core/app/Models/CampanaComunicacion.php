@@ -23,6 +23,8 @@ class CampanaComunicacion extends Model
         'descripcion',
         'canal',
         'canales',
+        'asunto',
+        'contenido',
         'audiencia_tipo',
         'votantes_ids',
         'total_destinatarios',

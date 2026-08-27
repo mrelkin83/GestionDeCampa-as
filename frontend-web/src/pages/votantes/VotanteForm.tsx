@@ -4,11 +4,13 @@ import { Save, X, Loader } from 'lucide-react'
 import MainLayout from '@/components/layout/MainLayout'
 import { votantesAPI, departamentosAPI } from '@/lib/api'
 import { Votante } from '@/types/votante'
+import { useActiveCampana } from '@/hooks/useActiveCampana'
 
 export default function VotanteForm() {
   const { id } = useParams()
   const navigate = useNavigate()
   const isEdit = !!id
+  const { campanaId } = useActiveCampana()
 
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -16,9 +18,12 @@ export default function VotanteForm() {
   const [municipios, setMunicipios] = useState<any[]>([])
 
   const [formData, setFormData] = useState<Partial<Votante>>({
-    cedula: '',
-    nombre: '',
-    apellido: '',
+    documento: '',
+    tipo_documento: 'CC',
+    primer_nombre: '',
+    segundo_nombre: '',
+    primer_apellido: '',
+    segundo_apellido: '',
     fecha_nacimiento: '',
     genero: undefined,
     email: '',
@@ -29,8 +34,7 @@ export default function VotanteForm() {
     departamento_id: undefined,
     municipio_id: undefined,
     scoring: 50,
-    intencion_voto: 'no_definido',
-    nivel_compromiso: 'medio',
+    intencion_voto: 'sin_definir',
     observaciones: '',
   })
 
@@ -91,9 +95,13 @@ export default function VotanteForm() {
 
     try {
       if (isEdit) {
-        await votantesAPI.update(Number(id), formData)
+        // El backend solo permite editar celular/email/intencion_voto/
+        // probabilidad_voto/scoring/observaciones una vez creado el votante
+        // -el resto de datos de identidad son inmutables tras el registro.
+        const { celular, email, intencion_voto, scoring, observaciones } = formData
+        await votantesAPI.update(Number(id), { celular, email, intencion_voto, scoring, observaciones })
       } else {
-        await votantesAPI.create(formData)
+        await votantesAPI.create({ ...formData, campana_id: campanaId })
       }
       navigate('/votantes')
     } catch (error: any) {
@@ -122,7 +130,9 @@ export default function VotanteForm() {
             {isEdit ? 'Editar Votante' : 'Nuevo Votante'}
           </h1>
           <p className="text-gray-600 mt-1">
-            Completa la información del votante
+            {isEdit
+              ? 'Solo se pueden actualizar los datos de contacto y seguimiento'
+              : 'Completa la información del votante'}
           </p>
         </div>
 
@@ -136,16 +146,94 @@ export default function VotanteForm() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Cédula *
+                    Tipo de Documento *
+                  </label>
+                  <select
+                    name="tipo_documento"
+                    value={formData.tipo_documento}
+                    onChange={handleChange}
+                    required
+                    disabled={isEdit}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent disabled:bg-gray-100"
+                  >
+                    <option value="CC">Cédula de Ciudadanía</option>
+                    <option value="CE">Cédula de Extranjería</option>
+                    <option value="TI">Tarjeta de Identidad</option>
+                    <option value="PAS">Pasaporte</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Documento *
                   </label>
                   <input
                     type="text"
-                    name="cedula"
-                    value={formData.cedula}
+                    name="documento"
+                    value={formData.documento}
                     onChange={handleChange}
                     required
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                    disabled={isEdit}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent disabled:bg-gray-100"
                     placeholder="1234567890"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Primer Nombre *
+                  </label>
+                  <input
+                    type="text"
+                    name="primer_nombre"
+                    value={formData.primer_nombre}
+                    onChange={handleChange}
+                    required
+                    disabled={isEdit}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent disabled:bg-gray-100"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Segundo Nombre
+                  </label>
+                  <input
+                    type="text"
+                    name="segundo_nombre"
+                    value={formData.segundo_nombre || ''}
+                    onChange={handleChange}
+                    disabled={isEdit}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent disabled:bg-gray-100"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Primer Apellido *
+                  </label>
+                  <input
+                    type="text"
+                    name="primer_apellido"
+                    value={formData.primer_apellido}
+                    onChange={handleChange}
+                    required
+                    disabled={isEdit}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent disabled:bg-gray-100"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Segundo Apellido
+                  </label>
+                  <input
+                    type="text"
+                    name="segundo_apellido"
+                    value={formData.segundo_apellido || ''}
+                    onChange={handleChange}
+                    disabled={isEdit}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent disabled:bg-gray-100"
                   />
                 </div>
 
@@ -157,41 +245,14 @@ export default function VotanteForm() {
                     name="genero"
                     value={formData.genero || ''}
                     onChange={handleChange}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                    disabled={isEdit}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent disabled:bg-gray-100"
                   >
                     <option value="">Seleccionar...</option>
                     <option value="M">Masculino</option>
                     <option value="F">Femenino</option>
                     <option value="O">Otro</option>
                   </select>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Nombre *
-                  </label>
-                  <input
-                    type="text"
-                    name="nombre"
-                    value={formData.nombre}
-                    onChange={handleChange}
-                    required
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Apellido *
-                  </label>
-                  <input
-                    type="text"
-                    name="apellido"
-                    value={formData.apellido}
-                    onChange={handleChange}
-                    required
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                  />
                 </div>
 
                 <div>
@@ -203,7 +264,8 @@ export default function VotanteForm() {
                     name="fecha_nacimiento"
                     value={formData.fecha_nacimiento || ''}
                     onChange={handleChange}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                    disabled={isEdit}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent disabled:bg-gray-100"
                   />
                 </div>
               </div>
@@ -226,19 +288,6 @@ export default function VotanteForm() {
                     onChange={handleChange}
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                     placeholder="+57 300 123 4567"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Teléfono Fijo
-                  </label>
-                  <input
-                    type="tel"
-                    name="telefono"
-                    value={formData.telefono || ''}
-                    onChange={handleChange}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                   />
                 </div>
 
@@ -271,7 +320,8 @@ export default function VotanteForm() {
                     name="departamento_id"
                     value={formData.departamento_id || ''}
                     onChange={handleChange}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                    disabled={isEdit}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent disabled:bg-gray-100"
                   >
                     <option value="">Seleccionar...</option>
                     {departamentos.map(dep => (
@@ -288,7 +338,7 @@ export default function VotanteForm() {
                     name="municipio_id"
                     value={formData.municipio_id || ''}
                     onChange={handleChange}
-                    disabled={!formData.departamento_id}
+                    disabled={isEdit || !formData.departamento_id}
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent disabled:bg-gray-100"
                   >
                     <option value="">Seleccionar...</option>
@@ -307,7 +357,8 @@ export default function VotanteForm() {
                     name="direccion"
                     value={formData.direccion || ''}
                     onChange={handleChange}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                    disabled={isEdit}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent disabled:bg-gray-100"
                   />
                 </div>
 
@@ -320,7 +371,8 @@ export default function VotanteForm() {
                     name="barrio"
                     value={formData.barrio || ''}
                     onChange={handleChange}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                    disabled={isEdit}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent disabled:bg-gray-100"
                   />
                 </div>
               </div>
@@ -331,7 +383,7 @@ export default function VotanteForm() {
               <h2 className="text-lg font-semibold text-gray-900 mb-4">
                 Scoring y Segmentación
               </h2>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Scoring (0-100)
@@ -341,7 +393,7 @@ export default function VotanteForm() {
                     name="scoring"
                     min="0"
                     max="100"
-                    value={formData.scoring || 50}
+                    value={formData.scoring ?? 50}
                     onChange={handleChange}
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                   />
@@ -353,30 +405,14 @@ export default function VotanteForm() {
                   </label>
                   <select
                     name="intencion_voto"
-                    value={formData.intencion_voto || 'no_definido'}
+                    value={formData.intencion_voto || 'sin_definir'}
                     onChange={handleChange}
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                   >
-                    <option value="no_definido">No definido</option>
-                    <option value="favorable">Favorable</option>
+                    <option value="sin_definir">Sin definir</option>
+                    <option value="a_favor">A favor</option>
                     <option value="indeciso">Indeciso</option>
-                    <option value="desfavorable">Desfavorable</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Nivel de Compromiso
-                  </label>
-                  <select
-                    name="nivel_compromiso"
-                    value={formData.nivel_compromiso || 'medio'}
-                    onChange={handleChange}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                  >
-                    <option value="bajo">Bajo</option>
-                    <option value="medio">Medio</option>
-                    <option value="alto">Alto</option>
+                    <option value="en_contra">En contra</option>
                   </select>
                 </div>
               </div>

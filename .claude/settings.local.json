@@ -1,24 +1,7 @@
 {
   "permissions": {
     "allow": [
-      "Bash(find:*)",
-      "Bash(npx claude-code-templates@latest:*)",
-      "Bash(git init:*)",
-      "Bash(git add:*)",
-      "Bash(git commit -m \"$(cat <<''EOF''\n🎉 Initial commit: Plataforma Electoral Colombia\n\nEstructura base del proyecto completa:\n\n✅ Arquitectura\n- Backend Core (Laravel 11)\n- Backend Día D (NestJS)\n- Frontend Web (Vite + Tailwind)\n- PWA Testigos (Offline-First)\n- Infrastructure (Terraform)\n\n✅ Configuración Docker\n- PostgreSQL 15 + PostGIS\n- Redis 7\n- docker-compose.yml completo\n- Dockerfiles para cada servicio\n\n✅ Base de Datos\n- 6 schemas: electoral, crm, compliance, diad, communication, analytics\n- Tablas sistema (users, roles, sessions)\n- 6 roles base (super_admin → testigo)\n- Script inicialización PostgreSQL\n\n✅ Documentación\n- 131 páginas documentación técnica\n- Roadmap 132 semanas detallado (48 semanas exhaustivas)\n- APIs documentadas (100+ endpoints)\n- Guías de desarrollo\n\n✅ Git\n- .gitignore completo\n- Estructura directorios\n\nObjetivo: Elecciones Territoriales 24 Octubre 2027\nTimeline: 36-40 semanas desarrollo acelerado\n\n🚀 Generated with Claude Code\nhttps://claude.com/claude-code\n\nCo-Authored-By: Claude <noreply@anthropic.com>\nEOF\n)\")",
-      "Bash(git config:*)",
-      "Bash(git commit:*)",
-      "Bash(docker --version:*)",
-      "Bash(docker-compose:*)",
-      "Bash(\"/c/Program Files/Docker/Docker/resources/bin/docker.exe\" --version)",
-      "Bash(git restore:*)",
-      "Bash(npm create:*)",
-      "Bash(npm init -y)",
-      "Bash(npm install:*)",
-      "Bash(npx tailwindcss:*)",
-      "Bash(npm run build:*)",
-      "Bash(npm uninstall:*)",
-      "Bash(timeout 10 npm run dev)"
+      "Bash(find:*)"
     ],
     "deny": [],
     "ask": []

@@ -1,10 +1,13 @@
 import { Bell, User, Settings, LogOut, Menu } from 'lucide-react'
+import { useAuth } from '@/contexts/AuthContext'
 
 interface NavbarProps {
   onToggleSidebar: () => void
 }
 
 export default function Navbar({ onToggleSidebar }: NavbarProps) {
+  const { logout } = useAuth()
+
   return (
     <nav className="bg-white border-b border-gray-200 fixed w-full z-30 top-0">
       <div className="px-3 py-3 lg:px-5 lg:pl-3">
@@ -41,7 +44,10 @@ export default function Navbar({ onToggleSidebar }: NavbarProps) {
                   <span>Configuración</span>
                 </a>
                 <hr className="my-1" />
-                <button className="flex items-center gap-2 w-full px-4 py-2 text-sm text-red-600 hover:bg-gray-100">
+                <button
+                  onClick={logout}
+                  className="flex items-center gap-2 w-full px-4 py-2 text-sm text-red-600 hover:bg-gray-100"
+                >
                   <LogOut className="w-4 h-4" />
                   <span>Cerrar Sesión</span>
                 </button>

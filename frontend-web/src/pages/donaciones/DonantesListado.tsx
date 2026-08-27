@@ -1,25 +1,30 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Plus, User, Building, DollarSign, TrendingUp, Edit, Trash2 } from 'lucide-react'
+import { Plus, User, Building, DollarSign, TrendingUp, Edit, Ban } from 'lucide-react'
 import MainLayout from '@/components/layout/MainLayout'
 import Badge from '@/components/ui/Badge'
 import { donantesAPI } from '@/lib/api'
 import { Donante } from '@/types/donacion'
+import { useActiveCampana } from '@/hooks/useActiveCampana'
 
 export default function DonantesListado() {
   const navigate = useNavigate()
+  const { campanaId } = useActiveCampana()
   const [donantes, setDonantes] = useState<Donante[]>([])
   const [loading, setLoading] = useState(true)
   const [filtroTipo, setFiltroTipo] = useState<string>('')
 
   useEffect(() => {
-    fetchDonantes()
-  }, [filtroTipo])
+    if (campanaId) {
+      fetchDonantes()
+    }
+  }, [filtroTipo, campanaId])
 
   const fetchDonantes = async () => {
     try {
       setLoading(true)
       const response = await donantesAPI.getAll({
+        campana_id: campanaId,
         tipo: filtroTipo || undefined
       })
       setDonantes(response.data || [])
@@ -30,15 +35,18 @@ export default function DonantesListado() {
     }
   }
 
-  const handleDelete = async (id: number, nombre: string) => {
-    if (!confirm(`¿Estás seguro de eliminar el donante "${nombre}"?`)) return
+  const handleMarcarInvalido = async (id: number, nombre: string) => {
+    // Los donantes no se eliminan: quedan con historial sujeto a reporte
+    // CNE. "Inválido" es la acción real que expone el backend.
+    const razon = prompt(`¿Por qué se marca como inválido el donante "${nombre}"?`)
+    if (!razon) return
 
     try {
-      await donantesAPI.delete(id)
+      await donantesAPI.marcarInvalido(id, razon)
       fetchDonantes()
     } catch (error) {
-      console.error('Error eliminando donante:', error)
-      alert('Error al eliminar donante')
+      console.error('Error marcando donante como inválido:', error)
+      alert('Error al marcar donante como inválido')
     }
   }
 
@@ -61,13 +69,13 @@ export default function DonantesListado() {
   }
 
   const getTipoBadge = (tipo: string) => {
-    if (tipo === 'persona') {
+    if (tipo === 'persona_natural') {
       return <Badge variant="info">Persona</Badge>
     }
     return <Badge variant="success">Empresa</Badge>
   }
 
-  const totalRecaudado = donantes.reduce((sum, d) => sum + (d.monto_total_donado || 0), 0)
+  const totalRecaudado = donantes.reduce((sum, d) => sum + (d.total_donado || 0), 0)
 
   if (loading) {
     return (
@@ -117,13 +125,13 @@ export default function DonantesListado() {
           <div className="bg-white rounded-lg shadow p-4">
             <p className="text-sm text-gray-600">Personas</p>
             <p className="text-2xl font-bold text-blue-600">
-              {donantes.filter(d => d.tipo === 'persona').length}
+              {donantes.filter(d => d.tipo === 'persona_natural').length}
             </p>
           </div>
           <div className="bg-white rounded-lg shadow p-4">
             <p className="text-sm text-gray-600">Empresas</p>
             <p className="text-2xl font-bold text-green-600">
-              {donantes.filter(d => d.tipo === 'empresa').length}
+              {donantes.filter(d => d.tipo === 'persona_juridica').length}
             </p>
           </div>
           <div className="bg-white rounded-lg shadow p-4">
@@ -144,14 +152,14 @@ export default function DonantesListado() {
               Todos
             </button>
             <button
-              onClick={() => setFiltroTipo('persona')}
-              className={`px-4 py-2 rounded-lg ${filtroTipo === 'persona' ? 'bg-primary-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
+              onClick={() => setFiltroTipo('persona_natural')}
+              className={`px-4 py-2 rounded-lg ${filtroTipo === 'persona_natural' ? 'bg-primary-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
             >
               Personas
             </button>
             <button
-              onClick={() => setFiltroTipo('empresa')}
-              className={`px-4 py-2 rounded-lg ${filtroTipo === 'empresa' ? 'bg-primary-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
+              onClick={() => setFiltroTipo('persona_juridica')}
+              className={`px-4 py-2 rounded-lg ${filtroTipo === 'persona_juridica' ? 'bg-primary-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
             >
               Empresas
             </button>
@@ -186,14 +194,16 @@ export default function DonantesListado() {
                 {/* Header */}
                 <div className="flex items-start justify-between mb-3">
                   <div className="flex items-center gap-2">
-                    {donante.tipo === 'persona' ? (
+                    {donante.tipo === 'persona_natural' ? (
                       <User className="w-5 h-5 text-blue-600" />
                     ) : (
                       <Building className="w-5 h-5 text-green-600" />
                     )}
                     <div>
                       <h3 className="font-semibold text-gray-900">
-                        {donante.nombre} {donante.apellido || donante.razon_social || ''}
+                        {donante.tipo === 'persona_natural'
+                          ? `${donante.nombres} ${donante.apellidos || ''}`
+                          : donante.razon_social}
                       </h3>
                     </div>
                   </div>
@@ -203,17 +213,19 @@ export default function DonantesListado() {
                 {/* Información */}
                 <div className="space-y-2 mb-4 text-sm">
                   <div className="flex items-center gap-2 text-gray-600">
-                    <span className="font-medium">{donante.tipo_documento.toUpperCase()}:</span>
-                    <span>{donante.numero_documento}</span>
+                    <span className="font-medium">
+                      {donante.tipo === 'persona_natural' ? donante.tipo_documento : 'NIT'}:
+                    </span>
+                    <span>{donante.tipo === 'persona_natural' ? donante.documento : donante.nit}</span>
                   </div>
                   {donante.email && (
                     <div className="text-gray-600">
                       <span>{donante.email}</span>
                     </div>
                   )}
-                  {donante.celular && (
+                  {donante.telefono && (
                     <div className="text-gray-600">
-                      <span>{donante.celular}</span>
+                      <span>{donante.telefono}</span>
                     </div>
                   )}
                 </div>
@@ -227,7 +239,7 @@ export default function DonantesListado() {
                         <p className="text-xs text-gray-600">Total Donado</p>
                       </div>
                       <p className="text-lg font-semibold text-green-600">
-                        {formatMonto(donante.monto_total_donado || 0)}
+                        {formatMonto(donante.total_donado || 0)}
                       </p>
                     </div>
                     <div>
@@ -236,13 +248,13 @@ export default function DonantesListado() {
                         <p className="text-xs text-gray-600">Donaciones</p>
                       </div>
                       <p className="text-lg font-semibold text-blue-600">
-                        {donante.total_donaciones || 0}
+                        {donante.numero_donaciones || 0}
                       </p>
                     </div>
                   </div>
-                  {donante.ultima_donacion && (
+                  {donante.fecha_ultima_donacion && (
                     <p className="text-xs text-gray-500 mt-2">
-                      Última donación: {formatDate(donante.ultima_donacion)}
+                      Última donación: {formatDate(donante.fecha_ultima_donacion)}
                     </p>
                   )}
                 </div>
@@ -257,10 +269,11 @@ export default function DonantesListado() {
                     <span>Editar</span>
                   </button>
                   <button
-                    onClick={() => handleDelete(donante.id, donante.nombre)}
+                    onClick={() => handleMarcarInvalido(donante.id, donante.nombres || donante.razon_social || '')}
+                    title="Marcar como inválido"
                     className="flex items-center justify-center px-3 py-2 text-sm border border-red-300 text-red-600 rounded-lg hover:bg-red-50"
                   >
-                    <Trash2 className="w-4 h-4" />
+                    <Ban className="w-4 h-4" />
                   </button>
                 </div>
               </div>

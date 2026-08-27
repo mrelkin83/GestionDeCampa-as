@@ -1,0 +1,215 @@
+name: Frontend Web CI/CD
+
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - 'frontend-web/**'
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - 'frontend-web/**'
+
+env:
+  NODE_VERSION: '18'
+
+jobs:
+  test:
+    name: Test Frontend
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: frontend-web/package-lock.json
+
+      - name: Install Dependencies
+        working-directory: ./frontend-web
+        run: npm ci
+
+      - name: Run Linter
+        working-directory: ./frontend-web
+        run: npm run lint
+
+      - name: Run Tests
+        working-directory: ./frontend-web
+        run: npm run test:unit -- --coverage
+
+      - name: Build
+        working-directory: ./frontend-web
+        env:
+          VITE_API_URL: https://api-staging.plataformaelectoral.com
+          VITE_WS_URL: wss://ws-staging.plataformaelectoral.com
+        run: npm run build
+
+      - name: Upload Coverage
+        uses: codecov/codecov-action@v3
+        with:
+          files: ./frontend-web/coverage/lcov.info
+          flags: frontend
+          name: frontend-coverage
+
+  e2e:
+    name: E2E Tests
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: frontend-web/package-lock.json
+
+      - name: Install Dependencies
+        working-directory: ./frontend-web
+        run: npm ci
+
+      - name: Install Playwright
+        working-directory: ./frontend-web
+        run: npx playwright install --with-deps
+
+      - name: Run E2E Tests
+        working-directory: ./frontend-web
+        run: npm run test:e2e
+
+      - name: Upload E2E Results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-results
+          path: frontend-web/playwright-report/
+          retention-days: 5
+
+  build-production:
+    name: Build Production
+    runs-on: ubuntu-latest
+    needs: [test, e2e]
+    if: github.ref == 'refs/heads/main'
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: frontend-web/package-lock.json
+
+      - name: Install Dependencies
+        working-directory: ./frontend-web
+        run: npm ci
+
+      - name: Build for Production
+        working-directory: ./frontend-web
+        env:
+          VITE_API_URL: https://api.plataformaelectoral.com
+          VITE_WS_URL: wss://ws.plataformaelectoral.com
+        run: npm run build
+
+      - name: Create Deployment Package
+        run: tar -czf frontend-web.tar.gz -C frontend-web/dist .
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-web-production
+          path: frontend-web.tar.gz
+          retention-days: 5
+
+  deploy-staging:
+    name: Deploy to Staging
+    runs-on: ubuntu-latest
+    needs: build-production
+    if: github.ref == 'refs/heads/main'
+    environment:
+      name: staging
+      url: https://app-staging.plataformaelectoral.com
+    
+    steps:
+      - name: Download Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: frontend-web-production
+
+      - name: Setup SSH
+        uses: webfactory/ssh-agent@v0.8.0
+        with:
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+
+      - name: Deploy to Staging
+        env:
+          HOST: ${{ secrets.STAGING_HOST }}
+          USER: ${{ secrets.STAGING_USER }}
+        run: |
+          scp -o StrictHostKeyChecking=no frontend-web.tar.gz $USER@$HOST:/tmp/
+          ssh -o StrictHostKeyChecking=no $USER@$HOST '
+            sudo rm -rf /var/www/app-staging/* &&
+            sudo tar -xzf /tmp/frontend-web.tar.gz -C /var/www/app-staging/ &&
+            sudo chown -R www-data:www-data /var/www/app-staging &&
+            sudo systemctl restart nginx &&
+            rm /tmp/frontend-web.tar.gz
+          '
+
+      - name: Health Check
+        run: |
+          sleep 5
+          curl -f https://app-staging.plataformaelectoral.com || exit 1
+
+  deploy-production:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    needs: deploy-staging
+    if: github.ref == 'refs/heads/main'
+    environment:
+      name: production
+      url: https://app.plataformaelectoral.com
+    
+    steps:
+      - name: Download Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: frontend-web-production
+
+      - name: Setup SSH
+        uses: webfactory/ssh-agent@v0.8.0
+        with:
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+
+      - name: Deploy to Production
+        env:
+          HOST: ${{ secrets.PRODUCTION_HOST }}
+          USER: ${{ secrets.PRODUCTION_USER }}
+        run: |
+          scp -o StrictHostKeyChecking=no frontend-web.tar.gz $USER@$HOST:/tmp/
+          ssh -o StrictHostKeyChecking=no $USER@$HOST '
+            sudo rm -rf /var/www/app/* &&
+            sudo tar -xzf /tmp/frontend-web.tar.gz -C /var/www/app/ &&
+            sudo chown -R www-data:www-data /var/www/app &&
+            sudo systemctl restart nginx &&
+            rm /tmp/frontend-web.tar.gz
+          '
+
+      - name: Health Check
+        run: |
+          sleep 5
+          curl -f https://app.plataformaelectoral.com || exit 1
+
+      - name: Notify Slack
+        if: always()
+        uses: 8398a7/action-slack@v3
+        with:
+          status: ${{ job.status }}
+          channel: '#deployments'
+          webhook_url: ${{ secrets.SLACK_WEBHOOK }}

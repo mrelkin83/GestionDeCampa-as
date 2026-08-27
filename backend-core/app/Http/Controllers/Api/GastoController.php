@@ -89,7 +89,7 @@ class GastoController extends Controller
     {
         $validator = Validator::make($request->all(), [
             'campana_id' => 'required|exists:campanas,id',
-            'categoria' => 'required|in:publicidad,logistica,personal,eventos,materiales,servicios,transporte,otros',
+            'categoria' => 'required|in:publicidad,logistica,personal,eventos,materiales,servicios_profesionales,transporte,otro',
             'subcategoria' => 'nullable|string|max:100',
             'descripcion' => 'required|string|max:500',
             'monto' => 'required|numeric|min:0',
@@ -110,9 +110,7 @@ class GastoController extends Controller
         }
 
         // Validar tope de gastos
-        $topeLegal = TopeLegal::where('campana_id', $request->campana_id)
-            ->where('tipo_tope', 'gasto_total')
-            ->first();
+        $topeLegal = TopeLegal::where('campana_id', $request->campana_id)->first();
 
         $totalGastos = Gasto::where('campana_id', $request->campana_id)
             ->aprobados()
@@ -121,14 +119,14 @@ class GastoController extends Controller
         $nuevoTotal = $totalGastos + $request->monto;
         $requiereValidacion = false;
 
-        if ($topeLegal && $nuevoTotal > $topeLegal->limite_total) {
+        if ($topeLegal && $nuevoTotal > $topeLegal->tope_gastos) {
             $requiereValidacion = true;
         }
 
         $gasto = Gasto::create(array_merge($request->all(), [
             'responsable_id' => $request->user()->id,
             'fecha_registro' => now(),
-            'estado' => $requiereValidacion ? 'requiere_validacion' : 'pendiente_aprobacion',
+            'estado' => 'pendiente',
             'requiere_validacion' => $requiereValidacion,
             'observaciones_validacion' => $requiereValidacion
                 ? "El gasto excedería el tope legal de gastos"
@@ -193,6 +191,14 @@ class GastoController extends Controller
             ], 404);
         }
 
+        $user = $request->user();
+        if ($user->role->name !== 'super_admin' && !$user->hasAccessToCampana($gasto->campana_id)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'No tiene acceso a este gasto',
+            ], 403);
+        }
+
         if ($gasto->estado === 'aprobado') {
             return response()->json([
                 'success' => false,
@@ -201,10 +207,17 @@ class GastoController extends Controller
         }
 
         $validator = Validator::make($request->all(), [
-            'categoria' => 'sometimes|in:publicidad,logistica,personal,eventos,materiales,servicios,transporte,otros',
+            'categoria' => 'sometimes|in:publicidad,logistica,personal,eventos,materiales,servicios_profesionales,transporte,otro',
+            'subcategoria' => 'nullable|string|max:100',
             'descripcion' => 'sometimes|string|max:500',
             'monto' => 'sometimes|numeric|min:0',
+            'moneda' => 'sometimes|in:COP,USD',
             'fecha_gasto' => 'sometimes|date',
+            'proveedor' => 'nullable|string|max:200',
+            'nit_proveedor' => 'nullable|string|max:20',
+            'numero_factura' => 'nullable|string|max:100',
+            'metodo_pago' => 'nullable|in:efectivo,transferencia,cheque,tarjeta',
+            'cuenta_bancaria' => 'nullable|string|max:50',
         ]);
 
         if ($validator->fails()) {
@@ -215,7 +228,12 @@ class GastoController extends Controller
             ], 422);
         }
 
-        $gasto->update($request->all());
+        // update() solo debe aceptar los campos validados arriba -pasar
+        // $request->all() permitía sobrescribir estado/campana_id/
+        // responsable_id/aprobado_por_id/reportado_cne/etc. (todos
+        // fillable en el modelo), dejando auto-aprobar o auto-reportar
+        // al CNE un gasto propio sin pasar por aprobar()/reportarCNE().
+        $gasto->update($validator->validated());
         $gasto->load(['responsable', 'aprobadoPor']);
 
         return response()->json([
@@ -239,6 +257,14 @@ class GastoController extends Controller
             ], 404);
         }
 
+        $user = $request->user();
+        if ($user->role->name !== 'super_admin' && !$user->hasAccessToCampana($gasto->campana_id)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'No tiene acceso a este gasto',
+            ], 403);
+        }
+
         if ($gasto->estado === 'aprobado') {
             return response()->json([
                 'success' => false,
@@ -249,6 +275,7 @@ class GastoController extends Controller
         $gasto->update([
             'estado' => 'aprobado',
             'aprobado_por_id' => $request->user()->id,
+            'fecha_aprobacion' => now(),
         ]);
 
         // Actualizar alertas de topes legales
@@ -275,6 +302,14 @@ class GastoController extends Controller
             ], 404);
         }
 
+        $user = $request->user();
+        if ($user->role->name !== 'super_admin' && !$user->hasAccessToCampana($gasto->campana_id)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'No tiene acceso a este gasto',
+            ], 403);
+        }
+
         $validator = Validator::make($request->all(), [
             'motivo' => 'required|string|max:500',
         ]);
@@ -289,12 +324,69 @@ class GastoController extends Controller
 
         $gasto->update([
             'estado' => 'rechazado',
-            'notas' => $request->motivo,
+            'notas_aprobacion' => $request->motivo,
         ]);
 
         return response()->json([
             'success' => true,
             'message' => 'Gasto rechazado',
+            'data' => $gasto,
+        ], 200);
+    }
+
+    /**
+     * Marcar gasto aprobado como pagado. El estado 'pagado' existe en el
+     * esquema desde el inicio pero no tenía ninguna acción que lo alcanzara
+     * -update() bloquea cualquier edición una vez aprobado ("No se puede
+     * editar un gasto ya aprobado"), así que un gasto nunca podía llegar a
+     * 'pagado' por ningún camino.
+     */
+    public function pagar(Request $request, int $id): JsonResponse
+    {
+        $gasto = Gasto::find($id);
+
+        if (!$gasto) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Gasto no encontrado',
+            ], 404);
+        }
+
+        $user = $request->user();
+        if ($user->role->name !== 'super_admin' && !$user->hasAccessToCampana($gasto->campana_id)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'No tiene acceso a este gasto',
+            ], 403);
+        }
+
+        if ($gasto->estado !== 'aprobado') {
+            return response()->json([
+                'success' => false,
+                'message' => 'Solo se pueden marcar como pagados los gastos aprobados',
+            ], 409);
+        }
+
+        $validator = Validator::make($request->all(), [
+            'numero_comprobante' => 'nullable|string|max:100',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Datos de validación incorrectos',
+                'errors' => $validator->errors(),
+            ], 422);
+        }
+
+        $gasto->update(array_filter([
+            'estado' => 'pagado',
+            'numero_comprobante' => $request->numero_comprobante,
+        ], fn ($v) => $v !== null));
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Gasto marcado como pagado',
             'data' => $gasto,
         ], 200);
     }
@@ -311,6 +403,14 @@ class GastoController extends Controller
                 'success' => false,
                 'message' => 'Gasto no encontrado',
             ], 404);
+        }
+
+        $user = $request->user();
+        if ($user->role->name !== 'super_admin' && !$user->hasAccessToCampana($gasto->campana_id)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'No tiene acceso a este gasto',
+            ], 403);
         }
 
         if ($gasto->estado !== 'aprobado') {
@@ -367,9 +467,7 @@ class GastoController extends Controller
             ], 403);
         }
 
-        $topeLegal = TopeLegal::where('campana_id', $campanaId)
-            ->where('tipo_tope', 'gasto_total')
-            ->first();
+        $topeLegal = TopeLegal::where('campana_id', $campanaId)->first();
 
         $totalGastos = Gasto::where('campana_id', $campanaId)
             ->aprobados()
@@ -395,13 +493,13 @@ class GastoController extends Controller
                 'pendientes_aprobacion' => $pendientesAprobacion,
             ],
             'topes_legales' => $topeLegal ? [
-                'limite_total' => $topeLegal->limite_total,
+                'limite_total' => $topeLegal->tope_gastos,
                 'gastado' => $totalGastos,
-                'disponible' => $topeLegal->limite_total - $totalGastos,
-                'porcentaje_usado' => round(($totalGastos / $topeLegal->limite_total) * 100, 2),
+                'disponible' => $topeLegal->tope_gastos - $totalGastos,
+                'porcentaje_usado' => round(($totalGastos / $topeLegal->tope_gastos) * 100, 2),
                 'alerta_80' => $topeLegal->alerta_80_porciento,
                 'alerta_90' => $topeLegal->alerta_90_porciento,
-                'limite_excedido' => $topeLegal->limite_excedido,
+                'limite_excedido' => $topeLegal->alerta_excedido,
             ] : null,
             'cumplimiento' => [
                 'pendientes_reporte_cne' => $pendientesReporte,
@@ -433,9 +531,7 @@ class GastoController extends Controller
      */
     private function actualizarAlertas(int $campanaId): void
     {
-        $topeLegal = TopeLegal::where('campana_id', $campanaId)
-            ->where('tipo_tope', 'gasto_total')
-            ->first();
+        $topeLegal = TopeLegal::where('campana_id', $campanaId)->first();
 
         if (!$topeLegal) {
             return;
@@ -445,12 +541,15 @@ class GastoController extends Controller
             ->aprobados()
             ->sum('monto');
 
-        $porcentaje = ($totalGastos / $topeLegal->limite_total) * 100;
+        $porcentaje = ($totalGastos / $topeLegal->tope_gastos) * 100;
 
         $topeLegal->update([
+            'total_gastos_actual' => $totalGastos,
+            'porcentaje_tope_gastos' => round($porcentaje, 2),
             'alerta_80_porciento' => $porcentaje >= 80,
             'alerta_90_porciento' => $porcentaje >= 90,
-            'limite_excedido' => $totalGastos > $topeLegal->limite_total,
+            'alerta_excedido' => $totalGastos > $topeLegal->tope_gastos,
+            'ultima_actualizacion' => now(),
         ]);
     }
 }

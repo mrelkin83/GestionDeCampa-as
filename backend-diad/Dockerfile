@@ -1,27 +1,34 @@
-FROM node:20-alpine
+# --- Etapa de build ---
+FROM node:20-alpine AS build
 
-# Instalar dependencias del sistema
-RUN apk add --no-cache \
-    git \
-    python3 \
-    make \
-    g++
+RUN apk add --no-cache python3 make g++
 
-# Configurar directorio de trabajo
 WORKDIR /app
 
-# Copiar package.json
 COPY package*.json ./
+RUN npm ci
 
-# Instalar dependencias
-RUN if [ -f package.json ]; then npm install; fi
-
-# Copiar archivos del proyecto
 COPY . .
+RUN npm run build
 
-# Build (si existe tsconfig)
-RUN if [ -f tsconfig.json ]; then npm run build; fi
+# --- Etapa de producción ---
+FROM node:20-alpine AS production
+
+RUN apk add --no-cache dumb-init && \
+    addgroup -S app && adduser -S app -G app
+
+WORKDIR /app
+ENV NODE_ENV=production
+
+COPY package*.json ./
+RUN npm ci --omit=dev && npm cache clean --force
+
+COPY --from=build /app/dist ./dist
+
+USER app
 
 EXPOSE 3000
 
-CMD ["npm", "run", "start:dev"]
+# dumb-init reenvía señales (SIGTERM) correctamente para un shutdown limpio
+ENTRYPOINT ["dumb-init", "--"]
+CMD ["node", "dist/main.js"]

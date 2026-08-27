@@ -3,37 +3,55 @@ import { Save, Bell, Lock, Eye, Globe, Palette } from 'lucide-react'
 import MainLayout from '@/components/layout/MainLayout'
 import { useAuth } from '@/contexts/AuthContext'
 
+const PREFERENCES_STORAGE_KEY = 'user_preferences'
+
+const defaultConfig = {
+  // Notificaciones
+  notif_email: true,
+  notif_push: false,
+  notif_sms: false,
+  notif_eventos: true,
+  notif_donaciones: true,
+  notif_gastos: true,
+
+  // Privacidad
+  perfil_publico: false,
+  mostrar_email: false,
+
+  // Idioma y región
+  idioma: 'es',
+  zona_horaria: 'America/Bogota',
+
+  // Tema
+  tema: 'light',
+  color_primario: '#3b82f6'
+}
+
+function loadStoredConfig(): typeof defaultConfig {
+  try {
+    const raw = localStorage.getItem(PREFERENCES_STORAGE_KEY)
+    return raw ? { ...defaultConfig, ...JSON.parse(raw) } : defaultConfig
+  } catch {
+    return defaultConfig
+  }
+}
+
 export default function ConfiguracionPage() {
   const { user } = useAuth()
   const [saving, setSaving] = useState(false)
-  const [config, setConfig] = useState({
-    // Notificaciones
-    notif_email: true,
-    notif_push: false,
-    notif_sms: false,
-    notif_eventos: true,
-    notif_donaciones: true,
-    notif_gastos: true,
-
-    // Privacidad
-    perfil_publico: false,
-    mostrar_email: false,
-
-    // Idioma y región
-    idioma: 'es',
-    zona_horaria: 'America/Bogota',
-
-    // Tema
-    tema: 'light',
-    color_primario: '#3b82f6'
-  })
+  const [config, setConfig] = useState(loadStoredConfig)
 
   const handleSave = async () => {
     setSaving(true)
     try {
-      // Aquí iría la llamada al API para guardar configuración
-      await new Promise(resolve => setTimeout(resolve, 1000))
-      alert('Configuración guardada exitosamente')
+      // Estas preferencias son solo de conveniencia de este navegador: no
+      // existe (ni tiene sentido crear todavía) un endpoint de backend para
+      // ellas, ya que ningún otro módulo de la app las consume aún (no hay
+      // sistema de temas ni de envío de notificaciones que las lea). Se
+      // persisten honestamente en localStorage en vez de simular un guardado
+      // que nunca ocurría.
+      localStorage.setItem(PREFERENCES_STORAGE_KEY, JSON.stringify(config))
+      alert('Preferencias guardadas en este navegador')
     } catch (error) {
       console.error('Error guardando configuración:', error)
       alert('Error al guardar configuración')
@@ -61,7 +79,7 @@ export default function ConfiguracionPage() {
           <div className="space-y-3">
             <div>
               <p className="text-sm text-gray-600">Nombre</p>
-              <p className="font-medium text-gray-900">{user?.name || 'Usuario'}</p>
+              <p className="font-medium text-gray-900">{user?.full_name || 'Usuario'}</p>
             </div>
             <div>
               <p className="text-sm text-gray-600">Email</p>
@@ -69,9 +87,18 @@ export default function ConfiguracionPage() {
             </div>
             <div>
               <p className="text-sm text-gray-600">Rol</p>
-              <p className="font-medium text-gray-900">Administrador</p>
+              <p className="font-medium text-gray-900">{user?.role || '-'}</p>
             </div>
           </div>
+
+          {user?.role === 'super_admin' && (
+            <a
+              href="/usuarios/nuevo"
+              className="inline-block mt-4 text-sm text-primary-600 hover:text-primary-700 font-medium"
+            >
+              + Crear nuevo usuario
+            </a>
+          )}
         </div>
 
         {/* Notificaciones */}

@@ -1,13 +1,15 @@
 export interface Template {
   id: number
   campana_id: number
+  created_by_id?: number
   nombre: string
-  descripcion?: string
   canal: 'sms' | 'whatsapp' | 'email'
   asunto?: string // Solo para email
   contenido: string
-  variables: string[] // Ej: ['nombre', 'apellido', 'municipio']
+  variables_disponibles?: string[] // Ej: ['nombre', 'apellido', 'municipio']
   activo: boolean
+  veces_usado?: number
+  ultima_vez_usado?: string
   created_at?: string
   updated_at?: string
 }
@@ -17,21 +19,23 @@ export interface Campana {
   campana_id: number
   nombre: string
   descripcion?: string
-  template_id: number
+  template_id?: number
   segmento_id?: number
-  canal: 'sms' | 'whatsapp' | 'email'
-  estado: 'borrador' | 'programada' | 'en_proceso' | 'completada' | 'cancelada'
+  canal: 'sms' | 'whatsapp' | 'email' | 'multiple'
+  estado: 'borrador' | 'programada' | 'enviando' | 'completada' | 'cancelada' | 'fallida'
   fecha_programada?: string
-  fecha_inicio?: string
-  fecha_fin?: string
+  fecha_inicio_envio?: string
+  fecha_fin_envio?: string
 
   // Estadísticas
   total_destinatarios?: number
-  enviados?: number
-  entregados?: number
-  leidos?: number
-  respondidos?: number
-  fallidos?: number
+  total_enviados?: number
+  total_entregados?: number
+  total_abiertos?: number
+  total_clicks?: number
+  total_fallidos?: number
+  tasa_entrega?: number
+  tasa_apertura?: number
 
   // Relaciones
   template?: Template
@@ -47,29 +51,32 @@ export interface Campana {
 
 export interface Mensaje {
   id: number
-  campana_id: number
+  campana_comunicacion_id: number
   votante_id: number
-  template_id: number
   canal: 'sms' | 'whatsapp' | 'email'
   destinatario: string // Teléfono o email
   asunto?: string
   contenido: string
-  estado: 'pendiente' | 'enviado' | 'entregado' | 'leido' | 'fallido'
+  estado: 'pendiente' | 'enviado' | 'entregado' | 'fallido'
   fecha_envio?: string
   fecha_entrega?: string
-  fecha_lectura?: string
+  fecha_apertura?: string
+  fecha_click?: string
   error_mensaje?: string
+  proveedor?: string
+  mensaje_id_externo?: string
 
   // Relaciones
   votante?: {
     id: number
-    cedula: string
-    nombre: string
-    apellido: string
+    documento: string
+    primer_nombre: string
+    primer_apellido: string
+    nombre_completo?: string
     celular?: string
     email?: string
   }
-  campana?: {
+  campana_comunicacion?: {
     id: number
     nombre: string
   }

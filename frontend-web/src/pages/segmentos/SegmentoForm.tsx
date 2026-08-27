@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { Save, X, Plus, Trash2 } from 'lucide-react'
 import MainLayout from '@/components/layout/MainLayout'
 import { segmentosAPI } from '@/lib/api'
+import { useActiveCampana } from '@/hooks/useActiveCampana'
 
 interface Criterio {
   campo: string
@@ -12,6 +13,7 @@ interface Criterio {
 
 export default function SegmentoForm() {
   const navigate = useNavigate()
+  const { campanaId } = useActiveCampana()
   const [saving, setSaving] = useState(false)
   const [formData, setFormData] = useState({
     nombre: '',
@@ -22,24 +24,17 @@ export default function SegmentoForm() {
     { campo: '', operador: '', valor: '' }
   ])
 
+  // El backend (SegmentoController::recalcularSegmento) solo entiende estas
+  // claves exactas como filtro de coincidencia directa -no soporta un
+  // operador genérico ni los demás campos que ofrecía antes este selector
+  // (nivel_compromiso, departamento_id, edad como valor único no existían
+  // en el backend real y el criterio se guardaba pero nunca filtraba nada).
   const campos = [
-    { value: 'genero', label: 'Género' },
-    { value: 'edad', label: 'Edad' },
-    { value: 'scoring', label: 'Scoring' },
+    { value: 'genero', label: 'Género (M/F)' },
+    { value: 'scoring_minimo', label: 'Scoring mínimo' },
     { value: 'intencion_voto', label: 'Intención de Voto' },
-    { value: 'nivel_compromiso', label: 'Nivel de Compromiso' },
-    { value: 'departamento_id', label: 'Departamento' },
-    { value: 'municipio_id', label: 'Municipio' },
-  ]
-
-  const operadores = [
-    { value: '=', label: 'Igual a' },
-    { value: '!=', label: 'Diferente de' },
-    { value: '>', label: 'Mayor que' },
-    { value: '>=', label: 'Mayor o igual' },
-    { value: '<', label: 'Menor que' },
-    { value: '<=', label: 'Menor o igual' },
-    { value: 'LIKE', label: 'Contiene' },
+    { value: 'municipio_id', label: 'Municipio (ID)' },
+    { value: 'rango_edad', label: 'Rango de edad (ej: 18-30)' },
   ]
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
@@ -71,9 +66,15 @@ export default function SegmentoForm() {
     setSaving(true)
 
     try {
+      const criteriosObj = criterios.reduce<Record<string, string>>((acc, c) => {
+        if (c.campo && c.valor) acc[c.campo] = c.valor
+        return acc
+      }, {})
+
       const data = {
         ...formData,
-        criterios: formData.tipo === 'dinamico' ? criterios : undefined
+        campana_id: campanaId,
+        criterios: formData.tipo === 'dinamico' ? criteriosObj : undefined
       }
 
       await segmentosAPI.create(data)
@@ -187,23 +188,11 @@ export default function SegmentoForm() {
                         </select>
                       </div>
                       <div className="flex-1">
-                        <select
-                          value={criterio.operador}
-                          onChange={(e) => handleCriterioChange(index, 'operador', e.target.value)}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                        >
-                          <option value="">Operador...</option>
-                          {operadores.map(o => (
-                            <option key={o.value} value={o.value}>{o.label}</option>
-                          ))}
-                        </select>
-                      </div>
-                      <div className="flex-1">
                         <input
                           type="text"
                           value={criterio.valor}
                           onChange={(e) => handleCriterioChange(index, 'valor', e.target.value)}
-                          placeholder="Valor..."
+                          placeholder="Valor... (ej: indeciso, 18-30, M, 50)"
                           className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                         />
                       </div>

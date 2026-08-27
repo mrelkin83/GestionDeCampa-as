@@ -21,6 +21,12 @@ class DatabaseSeeder extends Seeder
 
             // 3. Usuarios iniciales
             AdminUserSeeder::class,
+
+            // 4. Datos de prueba preconteo (solo desarrollo)
+            // Descomenta el que necesites:
+            // PrecountTestSeeder::class,     // Datos básicos
+            // EleccionesYCargosSeeder::class, // Solo elecciones y cargos
+            // DemoPreconteoSeeder::class,    // Demo completo con territorial
         ]);
 
         $this->command->info('');

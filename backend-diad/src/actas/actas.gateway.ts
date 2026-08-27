@@ -6,14 +6,18 @@ import {
   ConnectedSocket,
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
+import { UseGuards } from '@nestjs/common';
+import { WsJwtGuard } from '../auth/ws-jwt.guard';
+import { getAllowedOrigins } from '../config/cors';
 
 @WebSocketGateway({
   cors: {
-    origin: process.env.WEBSOCKET_CORS_ORIGIN?.split(',') || '*',
+    origin: getAllowedOrigins(),
     credentials: true,
   },
   namespace: '/actas',
 })
+@UseGuards(WsJwtGuard)
 export class ActasGateway {
   @WebSocketServer()
   server: Server;

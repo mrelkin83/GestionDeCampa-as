@@ -4,6 +4,7 @@ import { Save, X, Loader, Plus } from 'lucide-react'
 import MainLayout from '@/components/layout/MainLayout'
 import { templatesAPI } from '@/lib/api'
 import { Template } from '@/types/comunicacion'
+import { useActiveCampana } from '@/hooks/useActiveCampana'
 
 const VARIABLES_DISPONIBLES = [
   { nombre: 'nombre', descripcion: 'Nombre del votante' },
@@ -22,17 +23,17 @@ export default function TemplateForm() {
   const navigate = useNavigate()
   const isEdit = !!id
   const contenidoRef = useRef<HTMLTextAreaElement>(null)
+  const { campanaId } = useActiveCampana()
 
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
 
   const [formData, setFormData] = useState<Partial<Template>>({
     nombre: '',
-    descripcion: '',
     canal: 'whatsapp',
     asunto: '',
     contenido: '',
-    variables: [],
+    variables_disponibles: [],
     activo: true,
   })
 
@@ -49,8 +50,8 @@ export default function TemplateForm() {
     const variables = matches.map(m => m.replace(/[{}]/g, ''))
     const uniqueVariables = Array.from(new Set(variables))
 
-    if (JSON.stringify(uniqueVariables) !== JSON.stringify(formData.variables)) {
-      setFormData(prev => ({ ...prev, variables: uniqueVariables }))
+    if (JSON.stringify(uniqueVariables) !== JSON.stringify(formData.variables_disponibles)) {
+      setFormData(prev => ({ ...prev, variables_disponibles: uniqueVariables }))
     }
   }, [formData.contenido])
 
@@ -103,7 +104,7 @@ export default function TemplateForm() {
       if (isEdit) {
         await templatesAPI.update(Number(id), formData)
       } else {
-        await templatesAPI.create(formData)
+        await templatesAPI.create({ ...formData, campana_id: campanaId })
       }
       navigate('/comunicacion/templates')
     } catch (error: any) {
@@ -115,13 +116,31 @@ export default function TemplateForm() {
   }
 
   const renderPreview = () => {
-    let preview = formData.contenido || ''
-
-    // Resaltar variables en la vista previa
+    const contenido = formData.contenido || ''
     const regex = /\{(\w+)\}/g
-    preview = preview.replace(regex, '<span class="bg-yellow-100 text-yellow-800 px-1 rounded font-medium">{$1}</span>')
+    const nodes: React.ReactNode[] = []
+    let lastIndex = 0
+    let match: RegExpExecArray | null
 
-    return { __html: preview.replace(/\n/g, '<br/>') }
+    // Se resaltan las variables como elementos React (nunca HTML crudo) para
+    // evitar que contenido de plantilla con <script>/onerror se ejecute
+    // en la vista previa (XSS almacenado, ya que las plantillas se leen del backend).
+    while ((match = regex.exec(contenido)) !== null) {
+      if (match.index > lastIndex) {
+        nodes.push(contenido.slice(lastIndex, match.index))
+      }
+      nodes.push(
+        <span key={match.index} className="bg-yellow-100 text-yellow-800 px-1 rounded font-medium">
+          {`{${match[1]}}`}
+        </span>
+      )
+      lastIndex = regex.lastIndex
+    }
+    if (lastIndex < contenido.length) {
+      nodes.push(contenido.slice(lastIndex))
+    }
+
+    return nodes
   }
 
   if (loading) {
@@ -167,20 +186,6 @@ export default function TemplateForm() {
                     required
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                     placeholder="Ej: Invitación a Reunión"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Descripción
-                  </label>
-                  <input
-                    type="text"
-                    name="descripcion"
-                    value={formData.descripcion || ''}
-                    onChange={handleChange}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                    placeholder="Describe el propósito de esta plantilla"
                   />
                 </div>
 
@@ -288,13 +293,13 @@ export default function TemplateForm() {
                 </p>
               </div>
 
-              {formData.variables && formData.variables.length > 0 && (
+              {formData.variables_disponibles && formData.variables_disponibles.length > 0 && (
                 <div className="mt-4 p-3 bg-blue-50 rounded-lg">
                   <p className="text-sm font-medium text-blue-900 mb-2">
                     Variables detectadas:
                   </p>
                   <div className="flex flex-wrap gap-2">
-                    {formData.variables.map((variable, idx) => (
+                    {formData.variables_disponibles.map((variable, idx) => (
                       <span
                         key={idx}
                         className="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded font-medium"
@@ -323,10 +328,9 @@ export default function TemplateForm() {
                   </div>
                 )}
 
-                <div
-                  className="text-sm text-gray-700 whitespace-pre-wrap break-words"
-                  dangerouslySetInnerHTML={renderPreview()}
-                />
+                <div className="text-sm text-gray-700 whitespace-pre-wrap break-words">
+                  {renderPreview()}
+                </div>
 
                 {!formData.contenido && (
                   <p className="text-gray-400 text-sm italic">

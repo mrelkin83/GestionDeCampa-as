@@ -16,9 +16,11 @@ import Table from '@/components/ui/Table'
 import Pagination from '@/components/ui/Pagination'
 import { donacionesAPI } from '@/lib/api'
 import { Donacion, DonacionPagination, EstadisticasDonaciones } from '@/types/donacion'
+import { useActiveCampana } from '@/hooks/useActiveCampana'
 
 export default function DonacionesListado() {
   const navigate = useNavigate()
+  const { campanaId } = useActiveCampana()
   const [donaciones, setDonaciones] = useState<Donacion[]>([])
   const [pagination, setPagination] = useState<DonacionPagination | null>(null)
   const [estadisticas, setEstadisticas] = useState<EstadisticasDonaciones | null>(null)
@@ -27,26 +29,29 @@ export default function DonacionesListado() {
 
   const [filtros, setFiltros] = useState({
     estado: '',
-    metodo_pago: '',
+    tipo: '',
     search: '',
     page: 1
   })
 
   useEffect(() => {
-    fetchData()
-  }, [filtros])
+    if (campanaId) {
+      fetchData()
+    }
+  }, [filtros, campanaId])
 
   const fetchData = async () => {
     try {
       setLoading(true)
       const [donacionesRes, estadisticasRes] = await Promise.all([
         donacionesAPI.getAll({
+          campana_id: campanaId,
           estado: filtros.estado || undefined,
-          metodo_pago: filtros.metodo_pago || undefined,
+          tipo: filtros.tipo || undefined,
           search: filtros.search || undefined,
           page: filtros.page
         }),
-        donacionesAPI.estadisticas()
+        donacionesAPI.estadisticas({ campana_id: campanaId })
       ])
       setDonaciones(donacionesRes.data || [])
       setPagination(donacionesRes)
@@ -59,10 +64,11 @@ export default function DonacionesListado() {
   }
 
   const handleConfirmar = async (id: number) => {
-    if (!confirm('¿Confirmar esta donación?')) return
+    const numeroComprobante = prompt('Número de comprobante de la transacción:')
+    if (!numeroComprobante) return
 
     try {
-      await donacionesAPI.confirmar(id)
+      await donacionesAPI.confirmar(id, numeroComprobante)
       fetchData()
     } catch (error) {
       console.error('Error confirmando donación:', error)
@@ -83,23 +89,12 @@ export default function DonacionesListado() {
     }
   }
 
-  const handleGenerarRecibo = async (id: number) => {
-    try {
-      await donacionesAPI.generarRecibo(id)
-      fetchData()
-      alert('Recibo generado exitosamente')
-    } catch (error) {
-      console.error('Error generando recibo:', error)
-      alert('Error al generar recibo')
-    }
-  }
-
   const handleFiltroChange = (key: string, value: string) => {
     setFiltros(prev => ({ ...prev, [key]: value, page: 1 }))
   }
 
   const limpiarFiltros = () => {
-    setFiltros({ estado: '', metodo_pago: '', search: '', page: 1 })
+    setFiltros({ estado: '', tipo: '', search: '', page: 1 })
   }
 
   const getEstadoBadge = (estado: string) => {
@@ -107,22 +102,21 @@ export default function DonacionesListado() {
       pendiente: { text: 'Pendiente', variant: 'warning' as const },
       confirmada: { text: 'Confirmada', variant: 'success' as const },
       rechazada: { text: 'Rechazada', variant: 'danger' as const },
-      reversada: { text: 'Reversada', variant: 'default' as const },
+      reportada_cne: { text: 'Reportada CNE', variant: 'info' as const },
     }
     const config = badges[estado as keyof typeof badges] || badges.pendiente
     return <Badge variant={config.variant}>{config.text}</Badge>
   }
 
-  const getMetodoBadge = (metodo: string) => {
+  const getMetodoBadge = (tipo: string) => {
     const badges = {
       efectivo: { text: 'Efectivo', variant: 'success' as const },
       transferencia: { text: 'Transferencia', variant: 'info' as const },
-      tarjeta_credito: { text: 'T. Crédito', variant: 'default' as const },
-      tarjeta_debito: { text: 'T. Débito', variant: 'default' as const },
       cheque: { text: 'Cheque', variant: 'default' as const },
-      otro: { text: 'Otro', variant: 'default' as const },
+      especie: { text: 'Especie', variant: 'default' as const },
+      servicio: { text: 'Servicio', variant: 'default' as const },
     }
-    const config = badges[metodo as keyof typeof badges] || badges.otro
+    const config = badges[tipo as keyof typeof badges] || badges.efectivo
     return <Badge variant={config.variant}>{config.text}</Badge>
   }
 
@@ -152,7 +146,9 @@ export default function DonacionesListado() {
     {
       header: 'Donante',
       accessor: (row: Donacion) => row.donante
-        ? `${row.donante.nombre} ${row.donante.apellido || ''}`
+        ? (row.donante.tipo === 'persona_natural'
+          ? `${row.donante.nombres} ${row.donante.apellidos || ''}`
+          : row.donante.razon_social)
         : 'Anónimo',
     },
     {
@@ -165,30 +161,11 @@ export default function DonacionesListado() {
     },
     {
       header: 'Método',
-      accessor: (row: Donacion) => getMetodoBadge(row.metodo_pago),
+      accessor: (row: Donacion) => getMetodoBadge(row.tipo),
     },
     {
       header: 'Estado',
       accessor: (row: Donacion) => getEstadoBadge(row.estado),
-    },
-    {
-      header: 'Recibo',
-      accessor: (row: Donacion) => (
-        <div className="flex items-center gap-2">
-          {row.recibo_generado ? (
-            <Badge variant="success">Generado</Badge>
-          ) : row.estado === 'confirmada' ? (
-            <button
-              onClick={() => handleGenerarRecibo(row.id)}
-              className="text-xs text-primary-600 hover:text-primary-700 underline"
-            >
-              Generar
-            </button>
-          ) : (
-            <Badge variant="default">N/A</Badge>
-          )}
-        </div>
-      ),
     },
     {
       header: 'Acciones',
@@ -265,22 +242,11 @@ export default function DonacionesListado() {
                 <p className="text-sm opacity-90">Total Recaudado</p>
               </div>
               <p className="text-3xl font-bold">
-                {formatMonto(estadisticas.total_recaudado)}
+                {formatMonto(estadisticas.resumen.total_recaudado)}
               </p>
               <p className="text-xs opacity-75 mt-1">
-                {estadisticas.total_donaciones} donaciones
+                {estadisticas.resumen.numero_donaciones} donaciones
               </p>
-            </div>
-
-            <div className="bg-white rounded-lg shadow p-6">
-              <div className="flex items-center gap-2 mb-2">
-                <Users className="w-5 h-5 text-blue-600" />
-                <p className="text-sm text-gray-600">Total Donantes</p>
-              </div>
-              <p className="text-2xl font-bold text-gray-900">
-                {estadisticas.total_donantes}
-              </p>
-              <p className="text-xs text-gray-500 mt-1">Únicos</p>
             </div>
 
             <div className="bg-white rounded-lg shadow p-6">
@@ -289,7 +255,7 @@ export default function DonacionesListado() {
                 <p className="text-sm text-gray-600">Promedio</p>
               </div>
               <p className="text-2xl font-bold text-gray-900">
-                {formatMonto(estadisticas.promedio_donacion)}
+                {formatMonto(estadisticas.resumen.promedio_donacion)}
               </p>
               <p className="text-xs text-gray-500 mt-1">Por donación</p>
             </div>
@@ -297,15 +263,27 @@ export default function DonacionesListado() {
             <div className="bg-white rounded-lg shadow p-6">
               <div className="flex items-center gap-2 mb-2">
                 <FileText className="w-5 h-5 text-orange-600" />
-                <p className="text-sm text-gray-600">Este Mes</p>
+                <p className="text-sm text-gray-600">Efectivo</p>
               </div>
               <p className="text-2xl font-bold text-gray-900">
-                {formatMonto(estadisticas.mes_actual)}
-              </p>
-              <p className="text-xs text-gray-500 mt-1">
-                vs. {formatMonto(estadisticas.mes_anterior)} mes anterior
+                {formatMonto(estadisticas.resumen.efectivo)}
               </p>
             </div>
+
+            {estadisticas.topes_legales && (
+              <div className="bg-white rounded-lg shadow p-6">
+                <div className="flex items-center gap-2 mb-2">
+                  <Users className="w-5 h-5 text-blue-600" />
+                  <p className="text-sm text-gray-600">Tope Legal Usado</p>
+                </div>
+                <p className="text-2xl font-bold text-gray-900">
+                  {estadisticas.topes_legales.porcentaje_usado}%
+                </p>
+                <p className="text-xs text-gray-500 mt-1">
+                  {formatMonto(estadisticas.topes_legales.disponible)} disponible
+                </p>
+              </div>
+            )}
           </div>
         )}
 
@@ -320,7 +298,7 @@ export default function DonacionesListado() {
               <span>Filtros</span>
             </button>
 
-            {(filtros.estado || filtros.metodo_pago || filtros.search) && (
+            {(filtros.estado || filtros.tipo || filtros.search) && (
               <button
                 onClick={limpiarFiltros}
                 className="text-sm text-primary-600 hover:text-primary-700"
@@ -366,17 +344,16 @@ export default function DonacionesListado() {
                   Método de Pago
                 </label>
                 <select
-                  value={filtros.metodo_pago}
-                  onChange={(e) => handleFiltroChange('metodo_pago', e.target.value)}
+                  value={filtros.tipo}
+                  onChange={(e) => handleFiltroChange('tipo', e.target.value)}
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                 >
                   <option value="">Todos</option>
                   <option value="efectivo">Efectivo</option>
                   <option value="transferencia">Transferencia</option>
-                  <option value="tarjeta_credito">Tarjeta de Crédito</option>
-                  <option value="tarjeta_debito">Tarjeta de Débito</option>
                   <option value="cheque">Cheque</option>
-                  <option value="otro">Otro</option>
+                  <option value="especie">Especie</option>
+                  <option value="servicio">Servicio</option>
                 </select>
               </div>
             </div>

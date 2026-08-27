@@ -30,7 +30,8 @@ class Gasto extends Model
         'aprobado_por_id',
         'estado',
         'documentos_soporte',
-        'notas',
+        'fecha_aprobacion',
+        'notas_aprobacion',
         'reportado_cne',
         'fecha_reporte_cne',
         'numero_reporte_cne',
@@ -70,7 +71,7 @@ class Gasto extends Model
 
     public function scopePendientesAprobacion($query)
     {
-        return $query->where('estado', 'pendiente_aprobacion');
+        return $query->where('estado', 'pendiente');
     }
 
     public function scopePorCategoria($query, string $categoria)

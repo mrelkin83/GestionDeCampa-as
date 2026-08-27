@@ -19,10 +19,7 @@ export class ConteoController {
   }
 
   @Get('campaign/:campaignId/por-zona')
-  async getPorZona(
-    @Param('campaignId') campaignId: string,
-    @Query('zonaId') zonaId?: string,
-  ) {
+  async getPorZona(@Param('campaignId') campaignId: string, @Query('zonaId') zonaId?: string) {
     return this.conteoService.getPorZona(campaignId, zonaId);
   }
 

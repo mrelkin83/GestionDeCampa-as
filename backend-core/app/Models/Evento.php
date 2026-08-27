@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use Phaza\LaravelPostgis\Eloquent\PostgisTrait;
+use App\Support\Postgis\PostgisTrait;
 use Illuminate\Support\Str;
 
 class Evento extends Model
