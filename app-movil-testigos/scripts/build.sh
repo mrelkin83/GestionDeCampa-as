@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Build Script - App Móvil Nativa
-# Genera builds de producción para Android e iOS
+# Genera builds de producción para Android
 
 set -e
 
@@ -65,10 +65,7 @@ echo "Seleccione el tipo de build:"
 echo "1) Android - Development"
 echo "2) Android - Preview (APK)"
 echo "3) Android - Production (AAB)"
-echo "4) iOS - Development"
-echo "5) iOS - Preview"
-echo "6) iOS - Production"
-echo "7) Cancelar"
+echo "4) Cancelar"
 echo ""
 
 read -p "Opción: " opcion
@@ -94,24 +91,6 @@ case $opcion in
         fi
         ;;
     4)
-        print_status "Generando build iOS Development..."
-        npx eas build --platform ios --profile development
-        ;;
-    5)
-        print_status "Generando build iOS Preview..."
-        npx eas build --platform ios --profile preview
-        ;;
-    6)
-        print_status "Generando build iOS Production..."
-        npx eas build --platform ios --profile production
-        print_success "IPA generado para App Store"
-        echo ""
-        read -p "¿Desea subir a App Store Connect ahora? (s/n): " upload
-        if [ "$upload" = "s" ]; then
-            npx eas submit --platform ios
-        fi
-        ;;
-    7)
         echo "Cancelado"
         exit 0
         ;;
@@ -128,5 +107,4 @@ echo "📦 Los builds estarán disponibles en:"
 echo "   https://expo.dev/accounts/[username]/projects/[project]/builds"
 echo ""
 echo "📱 Para instalar en dispositivo:"
-echo "   - Android: Descargar APK e instalar"
-echo "   - iOS: Usar TestFlight o instalar directo con perfil de desarrollo"
+echo "   Descargar el APK e instalar"

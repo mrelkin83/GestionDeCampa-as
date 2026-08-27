@@ -4,11 +4,11 @@ import { ExpoConfig, ConfigContext } from 'expo/config';
 // Actualizar valores según el ambiente
 
 const IS_PRODUCTION = process.env.NODE_ENV === 'production';
-// eas.json define API_URL/WS_URL por perfil (p.ej. "development-simulator"
-// -> localhost, para probar contra el backend local). Sin leerlos aquí,
-// ese perfil terminaba recibiendo igual las URLs de staging, porque su
-// NODE_ENV es "development" (no "production") y por lo tanto caía siempre
-// en la rama de staging del switch binario de abajo.
+// eas.json define API_URL/WS_URL por perfil de build. Sin leerlos aquí,
+// cualquier perfil con NODE_ENV="development" (todos salvo "production")
+// caía siempre en la rama de staging del switch binario de abajo, sin
+// forma de apuntar a un backend local salvo corriendo `expo start`
+// directo (que sí usa el fallback de env.ts a localhost).
 const API_URL = process.env.API_URL || (IS_PRODUCTION
   ? 'https://api.plataformaelectoral.com'
   : 'https://api-staging.plataformaelectoral.com');
@@ -37,36 +37,6 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     '**/*'
   ],
   
-  // iOS Configuration
-  ios: {
-    supportsTablet: true,
-    bundleIdentifier: 'com.plataformaelectoral.testigos',
-    buildNumber: '1.0.0',
-    infoPlist: {
-      // Camera permission
-      NSCameraUsageDescription: 'Esta app necesita acceso a la cámara para capturar evidencias fotográficas de los actas electorales. Las fotos se adjuntan a los reportes de escrutinio.',
-
-      // Location: sin declarar -ninguna pantalla usa expo-location todavía
-      // (ver nota equivalente en la sección android). Re-agregar cuando el
-      // mapa de mesas cercanas se implemente de verdad.
-
-      // Background modes
-      UIBackgroundModes: [
-        'fetch',
-        'remote-notification'
-      ],
-      
-      // App capabilities
-      LSApplicationQueriesSchemes: ['mailto', 'tel'],
-      
-      // Security
-      ITSAppUsesNonExemptEncryption: false
-    },
-    config: {
-      googleMapsApiKey: process.env.GOOGLE_MAPS_API_KEY || ''
-    }
-  },
-  
   // Android Configuration
   android: {
     adaptiveIcon: {
@@ -78,9 +48,9 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     // ACCESS_FINE/COARSE/BACKGROUND_LOCATION se quitaron: ninguna pantalla
     // usa expo-location todavía ("Mapa de Mesas" es un placeholder, ver
     // MapaMesasScreen.tsx). Pedir ubicación en segundo plano sin usarla es
-    // motivo típico de rechazo en revisión de Google Play/App Store y un
-    // permiso innecesario de cara a privacidad. Volver a agregarlos cuando
-    // esa función se implemente de verdad.
+    // motivo típico de rechazo en revisión de Google Play y un permiso
+    // innecesario de cara a privacidad. Volver a agregarlos cuando esa
+    // función se implemente de verdad.
     permissions: [
       'CAMERA',
       'RECEIVE_BOOT_COMPLETED',
@@ -91,6 +61,11 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
       'ACCESS_NETWORK_STATE'
     ],
     softwareKeyboardLayoutMode: 'pan',
+    // react-native-maps en Android necesita este API key para inicializar el
+    // SDK nativo de Google Maps (sin él el mapa queda en blanco/gris). No se
+    // agrega todavía porque "Mapa de Mesas" es un placeholder sin mapa real
+    // (ver MapaMesasScreen.tsx); agregar config.googleMaps.apiKey cuando esa
+    // pantalla se implemente de verdad.
     intentFilters: [
       {
         action: 'VIEW',
@@ -133,8 +108,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     [
       'expo-secure-store',
       {
-        configureAndroidBackup: true,
-        faceIDPermission: 'Permitir que Testigos Electorales use Face ID para autenticación biométrica.'
+        configureAndroidBackup: true
       }
     ],
     [

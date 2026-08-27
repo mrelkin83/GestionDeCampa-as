@@ -7,34 +7,16 @@
     "development": {
       "developmentClient": true,
       "distribution": "internal",
-      "ios": {
-        "resourceClass": "m-medium"
-      },
       "env": {
         "NODE_ENV": "development",
         "API_URL": "https://api-staging.plataformaelectoral.com",
         "WS_URL": "wss://ws-staging.plataformaelectoral.com"
       }
     },
-    "development-simulator": {
-      "developmentClient": true,
-      "distribution": "internal",
-      "ios": {
-        "simulator": true
-      },
-      "env": {
-        "NODE_ENV": "development",
-        "API_URL": "http://localhost:8000",
-        "WS_URL": "ws://localhost:3000"
-      }
-    },
     "preview": {
       "distribution": "internal",
       "android": {
         "buildType": "apk"
-      },
-      "ios": {
-        "enterpriseProvisioning": "adhoc"
       },
       "env": {
         "NODE_ENV": "staging",
@@ -60,9 +42,6 @@
       "android": {
         "buildType": "app-bundle"
       },
-      "ios": {
-        "enterpriseProvisioning": "adhoc"
-      },
       "env": {
         "NODE_ENV": "production",
         "API_URL": "https://api.plataformaelectoral.com",
@@ -77,12 +56,6 @@
         "track": "production",
         "releaseStatus": "completed",
         "changesNotSentForReview": false
-      },
-      "ios": {
-        "ascAppId": "1234567890",
-        "ascApiKeyPath": "./credentials/app-store-connect-api-key.p8",
-        "ascApiKeyIssuerId": "00000000-0000-0000-0000-000000000000",
-        "ascApiKeyId": "ABCD123456"
       }
     },
     "beta": {
@@ -90,12 +63,6 @@
         "serviceAccountKeyPath": "./credentials/google-play-service-account.json",
         "track": "beta",
         "releaseStatus": "completed"
-      },
-      "ios": {
-        "ascAppId": "1234567890",
-        "ascApiKeyPath": "./credentials/app-store-connect-api-key.p8",
-        "ascApiKeyIssuerId": "00000000-0000-0000-0000-000000000000",
-        "ascApiKeyId": "ABCD123456"
       }
     }
   },
