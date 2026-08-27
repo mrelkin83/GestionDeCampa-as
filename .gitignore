@@ -39,6 +39,7 @@ vendor/
 backend-core/vendor/
 backend-core/.env
 backend-core/.phpunit.result.cache
+backend-core/.phpunit.cache/
 backend-core/Homestead.json
 backend-core/Homestead.yaml
 backend-core/npm-debug.log
