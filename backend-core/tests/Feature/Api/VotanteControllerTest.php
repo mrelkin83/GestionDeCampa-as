@@ -66,6 +66,22 @@ class VotanteControllerTest extends TestCase
         $response->assertStatus(403);
     }
 
+    public function test_store_rechaza_a_usuario_sin_acceso_a_la_campana(): void
+    {
+        $token = $this->userSinAcceso->createToken('test-token')->plainTextToken;
+
+        $response = $this->postJson('/api/crm/votantes', [
+            'campana_id' => $this->campanaAjena->id,
+            'documento' => '7777777777',
+            'tipo_documento' => 'CC',
+            'primer_nombre' => 'Carlos',
+            'primer_apellido' => 'Ruiz',
+        ], ['Authorization' => "Bearer $token"]);
+
+        $response->assertStatus(403);
+        $this->assertDatabaseMissing('votantes', ['documento' => '7777777777']);
+    }
+
     public function test_store_ignora_scoring_y_es_lider_enviados_por_el_cliente(): void
     {
         $adminRole = Role::create([

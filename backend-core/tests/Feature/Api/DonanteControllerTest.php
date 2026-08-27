@@ -52,6 +52,37 @@ class DonanteControllerTest extends TestCase
         ]);
     }
 
+    public function test_store_rechaza_a_usuario_sin_acceso_a_la_campana(): void
+    {
+        $roleOperador = Role::create([
+            'name' => 'operador',
+            'display_name' => 'Operador',
+            'description' => 'Rol de prueba sin acceso especial',
+        ]);
+        $userSinAcceso = User::create([
+            'first_name' => 'Sin',
+            'last_name' => 'Acceso',
+            'email' => 'sin-acceso-donante@example.com',
+            'password' => bcrypt('password123'),
+            'role_id' => $roleOperador->id,
+            'document_type' => 'CC',
+            'document_number' => '1234567891',
+        ]);
+        $token = $userSinAcceso->createToken('test-token')->plainTextToken;
+
+        $response = $this->postJson('/api/donantes', [
+            'campana_id' => $this->campana->id,
+            'tipo' => 'persona_natural',
+            'documento' => '444555666',
+            'tipo_documento' => 'CC',
+            'nombres' => 'Ana',
+            'apellidos' => 'Gómez',
+        ], ['Authorization' => "Bearer $token"]);
+
+        $response->assertStatus(403);
+        $this->assertDatabaseMissing('donantes', ['documento' => '444555666']);
+    }
+
     public function test_store_ignora_total_donado_y_numero_donaciones_enviados_por_el_cliente(): void
     {
         $token = $this->user->createToken('test-token')->plainTextToken;

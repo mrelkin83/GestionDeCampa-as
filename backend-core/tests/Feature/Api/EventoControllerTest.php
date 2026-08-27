@@ -9,7 +9,7 @@ use App\Models\Campana;
 use App\Models\CargoElectoral;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 
-class GastoControllerTest extends TestCase
+class EventoControllerTest extends TestCase
 {
     use RefreshDatabase;
 
@@ -29,7 +29,7 @@ class GastoControllerTest extends TestCase
         $this->user = User::create([
             'first_name' => 'Test',
             'last_name' => 'Admin',
-            'email' => 'gasto-test@example.com',
+            'email' => 'evento-test@example.com',
             'password' => bcrypt('password123'),
             'role_id' => $role->id,
             'document_type' => 'CC',
@@ -43,8 +43,8 @@ class GastoControllerTest extends TestCase
         ]);
 
         $this->campana = Campana::create([
-            'nombre' => 'Campaña Gastos',
-            'slug' => 'campana-gastos',
+            'nombre' => 'Campaña Eventos',
+            'slug' => 'campana-eventos',
             'cargo_electoral_id' => $cargo->id,
             'fecha_eleccion' => now()->addMonths(3),
             'tipo_eleccion' => 'primera_vuelta',
@@ -62,54 +62,49 @@ class GastoControllerTest extends TestCase
         $userSinAcceso = User::create([
             'first_name' => 'Sin',
             'last_name' => 'Acceso',
-            'email' => 'sin-acceso-gasto@example.com',
+            'email' => 'sin-acceso-evento@example.com',
             'password' => bcrypt('password123'),
             'role_id' => $roleOperador->id,
             'document_type' => 'CC',
-            'document_number' => '1234567892',
+            'document_number' => '1234567894',
         ]);
         $token = $userSinAcceso->createToken('test-token')->plainTextToken;
 
-        $response = $this->postJson('/api/gastos', [
+        $response = $this->postJson('/api/eventos', [
             'campana_id' => $this->campana->id,
-            'categoria' => 'publicidad',
-            'descripcion' => 'Gasto no autorizado',
-            'monto' => 1000000,
-            'moneda' => 'COP',
-            'fecha_gasto' => now()->toDateString(),
+            'nombre' => 'Mitin no autorizado',
+            'tipo' => 'mitin',
+            'fecha_inicio' => now()->addDays(5)->toDateTimeString(),
         ], ['Authorization' => "Bearer $token"]);
 
         $response->assertStatus(403);
-        $this->assertDatabaseMissing('gastos', ['descripcion' => 'Gasto no autorizado']);
+        $this->assertDatabaseMissing('eventos', ['nombre' => 'Mitin no autorizado']);
     }
 
-    public function test_store_ignora_campos_de_aprobacion_y_reporte_cne_enviados_por_el_cliente(): void
+    public function test_store_ignora_totales_y_estado_enviados_por_el_cliente(): void
     {
         $token = $this->user->createToken('test-token')->plainTextToken;
 
-        $response = $this->postJson('/api/gastos', [
+        $response = $this->postJson('/api/eventos', [
             'campana_id' => $this->campana->id,
-            'categoria' => 'publicidad',
-            'descripcion' => 'Vallas publicitarias',
-            'monto' => 1000000,
-            'moneda' => 'COP',
-            'fecha_gasto' => now()->toDateString(),
+            'nombre' => 'Mitin central',
+            'tipo' => 'mitin',
+            'fecha_inicio' => now()->addDays(5)->toDateTimeString(),
             // Campos que NO deberían poder fijarse desde el cliente:
-            'aprobado_por_id' => $this->user->id,
-            'fecha_aprobacion' => now()->toDateString(),
-            'reportado_cne' => true,
-            'numero_reporte_cne' => 'FAKE-001',
+            'total_confirmados' => 5000,
+            'total_asistentes' => 5000,
+            'estado' => 'finalizado',
+            'coordinador_id' => 999,
         ], ['Authorization' => "Bearer $token"]);
 
         $response->assertStatus(201);
 
-        $this->assertDatabaseHas('gastos', [
-            'descripcion' => 'Vallas publicitarias',
-            'estado' => 'pendiente',
-            'aprobado_por_id' => null,
-            'fecha_aprobacion' => null,
-            'reportado_cne' => false,
-            'numero_reporte_cne' => null,
+        $this->assertDatabaseHas('eventos', [
+            'nombre' => 'Mitin central',
+            'estado' => 'planificado',
+            'total_confirmados' => 0,
+            'total_asistentes' => 0,
+            'coordinador_id' => null,
         ]);
     }
 }

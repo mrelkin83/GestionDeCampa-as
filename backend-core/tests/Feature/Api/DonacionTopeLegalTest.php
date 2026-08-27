@@ -102,6 +102,67 @@ class DonacionTopeLegalTest extends TestCase
         $this->assertEquals(50.0, $fresh->porcentaje_tope_donaciones);
     }
 
+    public function test_store_rechaza_a_usuario_sin_acceso_a_la_campana(): void
+    {
+        $roleOperador = Role::create([
+            'name' => 'operador',
+            'display_name' => 'Operador',
+            'description' => 'Rol de prueba sin acceso especial',
+        ]);
+        $userSinAcceso = User::create([
+            'first_name' => 'Sin',
+            'last_name' => 'Acceso',
+            'email' => 'sin-acceso-donacion@example.com',
+            'password' => bcrypt('password123'),
+            'role_id' => $roleOperador->id,
+            'document_type' => 'CC',
+            'document_number' => '1234567893',
+        ]);
+        $token = $userSinAcceso->createToken('test-token')->plainTextToken;
+
+        $response = $this->postJson('/api/donaciones', [
+            'campana_id' => $this->campana->id,
+            'donante_id' => $this->donante->id,
+            'monto' => 100000,
+            'moneda' => 'COP',
+            'tipo' => 'transferencia',
+            'fecha_donacion' => now()->toDateString(),
+        ], ['Authorization' => "Bearer $token"]);
+
+        $response->assertStatus(403);
+    }
+
+    public function test_store_rechaza_donante_de_otra_campana(): void
+    {
+        $otraCampana = Campana::create([
+            'nombre' => 'Otra Campaña',
+            'slug' => 'otra-campana-donaciones',
+            'cargo_electoral_id' => $this->campana->cargo_electoral_id,
+            'fecha_eleccion' => now()->addMonths(3),
+            'tipo_eleccion' => 'primera_vuelta',
+            'candidato_nombre' => 'Otro Candidato',
+        ]);
+        $donanteAjeno = Donante::create([
+            'campana_id' => $otraCampana->id,
+            'tipo' => 'persona_natural',
+            'documento' => '8888888888',
+            'nombres' => 'Donante',
+            'apellidos' => 'Ajeno',
+        ]);
+
+        $response = $this->postJson('/api/donaciones', [
+            'campana_id' => $this->campana->id,
+            'donante_id' => $donanteAjeno->id,
+            'monto' => 100000,
+            'moneda' => 'COP',
+            'tipo' => 'transferencia',
+            'fecha_donacion' => now()->toDateString(),
+        ], $this->authHeader());
+
+        $response->assertStatus(422);
+        $this->assertDatabaseMissing('donaciones', ['donante_id' => $donanteAjeno->id]);
+    }
+
     public function test_store_ignora_campos_de_reporte_cne_enviados_por_el_cliente(): void
     {
         $response = $this->postJson('/api/donaciones', [

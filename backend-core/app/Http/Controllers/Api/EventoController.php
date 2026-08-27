@@ -95,6 +95,18 @@ class EventoController extends Controller
             ], 422);
         }
 
+        $user = $request->user();
+        // Sin este chequeo, cualquier usuario con acceso a UNA campaña podía
+        // crear eventos en CUALQUIER otra solo enviando su campana_id -la
+        // validación 'exists:campanas,id' comprueba que la campaña exista,
+        // no que el usuario tenga acceso a ella.
+        if ($user->role->name !== 'super_admin' && !$user->hasAccessToCampana($request->campana_id)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'No tiene acceso a esta campaña',
+            ], 403);
+        }
+
         // Solo los campos validados arriba -pasar $request->all() permitía
         // fijar directamente total_confirmados/total_asistentes/
         // total_ausentes/coordinador_id (todos fillable, sin cubrir por la

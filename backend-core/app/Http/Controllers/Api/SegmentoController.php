@@ -70,6 +70,16 @@ class SegmentoController extends Controller
             ], 422);
         }
 
+        $user = $request->user();
+        // Sin este chequeo, cualquier usuario con acceso a UNA campaña podía
+        // crear segmentos en CUALQUIER otra solo enviando su campana_id.
+        if ($user->role->name !== 'super_admin' && !$user->hasAccessToCampana($request->campana_id)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'No tiene acceso a esta campaña',
+            ], 403);
+        }
+
         $segmento = Segmento::create([
             'campana_id' => $request->campana_id,
             'created_by_id' => $request->user()->id,

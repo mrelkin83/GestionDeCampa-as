@@ -105,7 +105,28 @@ class DonacionController extends Controller
             ], 422);
         }
 
+        $user = $request->user();
+        // Sin este chequeo, cualquier usuario con acceso a UNA campaña podía
+        // registrar donaciones en CUALQUIER otra solo enviando su campana_id.
+        if ($user->role->name !== 'super_admin' && !$user->hasAccessToCampana($request->campana_id)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'No tiene acceso a esta campaña',
+            ], 403);
+        }
+
         $donante = Donante::find($request->donante_id);
+
+        // 'exists:donantes,id' solo comprueba que el donante exista en
+        // alguna campaña, no en ESTA -sin este chequeo se podía registrar
+        // una donación en la campaña A citando un donante de la campaña B,
+        // mezclando historiales y topes legales entre campañas distintas.
+        if (!$donante || (int) $donante->campana_id !== (int) $request->campana_id) {
+            return response()->json([
+                'success' => false,
+                'message' => 'El donante no pertenece a esta campaña',
+            ], 422);
+        }
 
         // Validar tope individual
         $topeLegal = TopeLegal::where('campana_id', $request->campana_id)->first();

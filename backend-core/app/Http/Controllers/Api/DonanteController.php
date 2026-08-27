@@ -115,6 +115,16 @@ class DonanteController extends Controller
             ], 422);
         }
 
+        $user = $request->user();
+        // Sin este chequeo, cualquier usuario con acceso a UNA campaña podía
+        // registrar donantes en CUALQUIER otra solo enviando su campana_id.
+        if ($user->role->name !== 'super_admin' && !$user->hasAccessToCampana($request->campana_id)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'No tiene acceso a esta campaña',
+            ], 403);
+        }
+
         // Verificar duplicados
         $query = Donante::where('campana_id', $request->campana_id);
 

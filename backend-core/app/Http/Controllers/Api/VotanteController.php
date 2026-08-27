@@ -112,6 +112,16 @@ class VotanteController extends Controller
             ], 422);
         }
 
+        $user = $request->user();
+        // Sin este chequeo, cualquier usuario con acceso a UNA campaña podía
+        // registrar votantes en CUALQUIER otra solo enviando su campana_id.
+        if ($user->role->name !== 'super_admin' && !$user->hasAccessToCampana($request->campana_id)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'No tiene acceso a esta campaña',
+            ], 403);
+        }
+
         // Verificar duplicado
         $existe = Votante::where('campana_id', $request->campana_id)
             ->where('documento', $request->documento)
