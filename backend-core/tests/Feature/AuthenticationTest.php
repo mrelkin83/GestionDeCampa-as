@@ -6,6 +6,8 @@ use Tests\TestCase;
 use App\Models\User;
 use App\Models\Role;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Firebase\JWT\JWT;
+use Firebase\JWT\Key;
 
 class AuthenticationTest extends TestCase
 {
@@ -47,10 +49,40 @@ class AuthenticationTest extends TestCase
                 'data' => [
                     'user' => ['id', 'full_name', 'email'],
                     'token',
+                    'ws_token',
                 ],
             ]);
 
         $this->assertNotNull($response->json('data.token'));
+        $this->assertNotNull($response->json('data.ws_token'));
+    }
+
+    /**
+     * ws_token es lo que el frontend usa para autenticarse contra
+     * backend-diad (REST/WebSocket de Día D vía JWT_SECRET compartido).
+     * Antes de este cambio no existía ningún emisor real de JWT: solo se
+     * podía llegar a este punto usando el token opaco de Sanctum, que los
+     * guards de backend-diad rechazan siempre.
+     */
+    public function test_ws_token_es_un_jwt_valido_con_los_claims_esperados(): void
+    {
+        $user = User::where('email', 'test@example.com')->first();
+
+        $response = $this->postJson('/api/auth/login', [
+            'email' => 'test@example.com',
+            'password' => 'password123',
+        ]);
+
+        $wsToken = $response->json('data.ws_token');
+        $this->assertNotNull($wsToken);
+
+        $secret = config('services.jwt_ws.secret');
+        $payload = JWT::decode($wsToken, new Key($secret, 'HS256'));
+
+        $this->assertSame($user->id, $payload->sub);
+        $this->assertSame($user->email, $payload->email);
+        $this->assertSame('admin', $payload->role);
+        $this->assertGreaterThan($payload->iat, $payload->exp);
     }
 
     public function test_user_cannot_login_with_invalid_credentials(): void

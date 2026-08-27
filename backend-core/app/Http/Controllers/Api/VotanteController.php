@@ -125,7 +125,12 @@ class VotanteController extends Controller
             ], 409);
         }
 
-        $votante = Votante::create(array_merge($request->all(), [
+        // Solo los campos validados arriba -pasar $request->all() permitía
+        // fijar directamente scoring/es_lider/lider_asignado_id (todos
+        // fillable, sin cubrir por la validación) al crear el votante,
+        // el mismo patrón de bug ya corregido en update() de este
+        // controlador (y en Donacion/Donante/GastoController).
+        $votante = Votante::create(array_merge($validator->validated(), [
             'estado' => 'activo',
             'numero_contactos' => 0,
         ]));
@@ -308,6 +313,18 @@ class VotanteController extends Controller
                 'success' => false,
                 'message' => 'Debe especificar campana_id',
             ], 400);
+        }
+
+        // A diferencia de index()/show()/store()/update() de este mismo
+        // controlador, este método no verificaba acceso a la campaña:
+        // cualquier usuario autenticado podía consultar estadísticas de
+        // votantes de CUALQUIER campaña ajena solo conociendo su ID.
+        $user = $request->user();
+        if ($user->role->name !== 'super_admin' && !$user->hasAccessToCampana($campanaId)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'No tiene acceso a esta campaña',
+            ], 403);
         }
 
         $stats = [

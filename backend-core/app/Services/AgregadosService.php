@@ -236,21 +236,31 @@ class AgregadosService
 
         $totalVotos = $resultados->sum('votos');
 
+        // "Se calcula después" nunca pasaba: es_ganador quedaba en false
+        // para TODOS los candidatos siempre, incluido el real ganador.
+        // ResultadosChart.tsx (frontend-web) usa este campo para resaltar
+        // con borde el candidato ganador en el gráfico en tiempo real -ese
+        // resaltado nunca aparecía. Se calcula explícitamente por votos
+        // (no por el orden de la consulta, que depende de $orderBy/
+        // $orderDirection) para que 'ganador' sea consistente sin importar
+        // cómo se haya pedido ordenar la lista.
+        $ganador = $totalVotos > 0 ? $resultados->sortByDesc('votos')->first() : null;
+
         $data = [
             'scope_type' => $scopeType,
             'scope_id' => $scopeId,
             'cargo_id' => $cargoId,
             'total_votos' => $totalVotos,
-            'resultados' => $resultados->map(function ($item) use ($totalVotos) {
+            'resultados' => $resultados->map(function ($item) use ($ganador) {
                 return [
                     'candidate_id' => $item->candidate_id,
                     'candidate_nombre' => $item->candidate?->nombre ?? 'Candidato ' . $item->candidate_id,
                     'votos' => $item->votos,
                     'porcentaje' => $item->porcentaje,
-                    'es_ganador' => false // Se calcula después
+                    'es_ganador' => $ganador !== null && $item->candidate_id === $ganador->candidate_id,
                 ];
             }),
-            'ganador' => $resultados->first() // El primero es el ganador (ordenado por votos)
+            'ganador' => $ganador,
         ];
 
         // Guardar en cache por 5 minutos

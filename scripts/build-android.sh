@@ -9,6 +9,9 @@ BUILD_TYPE=${1:-debug}
 DATE=$(date +%Y%m%d)
 VERSION="1.0.0"
 
+# Leído por capacitor.config.ts para deshabilitar debugging/mixed-content en release
+export CAPACITOR_BUILD_TYPE=$BUILD_TYPE
+
 echo "📱 Building Android APK ($BUILD_TYPE)..."
 
 # ==========================================
@@ -28,6 +31,13 @@ npm ci
 # Build web
 echo "🌐 Building web assets..."
 npm run build
+
+# Agregar plataforma nativa si aún no existe (cap sync no la crea, solo la
+# actualiza; sin este paso el build fallaba siempre en un checkout limpio)
+if [ ! -d "android" ]; then
+    echo "➕ Agregando plataforma Android (primera vez)..."
+    npx cap add android
+fi
 
 # Sync con Capacitor
 echo "🔄 Sync con Capacitor..."
@@ -90,7 +100,13 @@ fi
 DIST_DIR="/var/www/dist/android"
 mkdir -p "$DIST_DIR"
 
-cp app/build/outputs/apk/${BUILD_TYPE}/*.apk "$DIST_DIR/"
+if [ "$BUILD_TYPE" = "release" ]; then
+    # Solo el APK firmado y alineado; el "*-unsigned.apk" original NO debe
+    # llegar al directorio de distribución (no es instalable/publicable).
+    cp "$SIGNED_APK" "$DIST_DIR/"
+else
+    cp "$FINAL_APK" "$DIST_DIR/"
+fi
 
 echo ""
 echo "=========================================="

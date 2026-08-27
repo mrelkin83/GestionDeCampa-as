@@ -69,7 +69,7 @@ const PendientesScreen = () => {
     try {
       dispatch(sincronizarActa(acta.localId));
 
-      const result = await syncService.sincronizarTodo();
+      const result = await syncService.sincronizarActa(acta.localId);
 
       if (result.actasSincronizadas > 0) {
         Alert.alert('Éxito', 'Acta sincronizada correctamente');

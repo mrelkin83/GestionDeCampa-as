@@ -28,6 +28,22 @@ const initialState: AuthState = {
   error: null,
 };
 
+// Hash simple (no criptográfico) de la contraseña, solo para el chequeo
+// local de login offline -mismo enfoque y misma advertencia que
+// pwa-testigos/src/stores/authStore.ts (hashPassword). La verificación
+// real de contraseña siempre ocurre en el servidor vía Sanctum; esto es
+// únicamente "¿es la misma persona que inició sesión online la última
+// vez en este dispositivo?".
+const hashPassword = (password: string): string => {
+  let hash = 0;
+  for (let i = 0; i < password.length; i++) {
+    const char = password.charCodeAt(i);
+    hash = (hash << 5) - hash + char;
+    hash = hash & hash;
+  }
+  return hash.toString(16);
+};
+
 // Thunk para login
 export const loginUser = createAsyncThunk(
   'auth/login',
@@ -35,23 +51,58 @@ export const loginUser = createAsyncThunk(
     { email, password }: { email: string; password: string },
     { rejectWithValue },
   ) => {
+    // Última sesión guardada para este correo, si existe.
+    const intentarOffline = async () => {
+      const offlineUser = await AsyncStorage.getItem('offline_user');
+      const cachedToken = await TokenStorage.getToken();
+      const cachedPasswordHash = await TokenStorage.getPasswordHash();
+      if (offlineUser && cachedToken) {
+        const user = JSON.parse(offlineUser);
+        // Antes solo se comparaba el email: cualquiera que conociera el
+        // correo de un testigo podía "iniciar sesión offline" con
+        // CUALQUIER contraseña, sin verificar nada -un bypass real de
+        // autenticación para el escenario offline.
+        if (
+          user.email === email &&
+          cachedPasswordHash &&
+          cachedPasswordHash === hashPassword(password)
+        ) {
+          return { user, token: cachedToken, offline: true };
+        }
+      }
+      return null;
+    };
+
+    let response: Response;
     try {
-      // Intentar login online
-      const response = await fetch(`${ENV.apiUrl}/api/auth/login`, {
+      response = await fetch(`${ENV.apiUrl}/api/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password }),
       });
+    } catch (networkError) {
+      // Sin conectividad real (lo que el banner "Modo offline" de
+      // LoginScreen promete): fetch() lanza una excepción de red en vez de
+      // resolver con response.ok=false, así que este caso NUNCA pasaba por
+      // el fallback de abajo -el login offline no funcionaba nunca en el
+      // escenario para el que existe (testigo sin señal en el puesto).
+      const offlineResult = await intentarOffline();
+      if (offlineResult) {
+        return offlineResult;
+      }
+      return rejectWithValue(
+        'Sin conexión y no hay una sesión previa guardada para este correo',
+      );
+    }
 
+    try {
       if (!response.ok) {
-        // Si falla, intentar login offline con la última sesión guardada
-        const offlineUser = await AsyncStorage.getItem('offline_user');
-        const cachedToken = await TokenStorage.getToken();
-        if (offlineUser && cachedToken) {
-          const user = JSON.parse(offlineUser);
-          if (user.email === email) {
-            return { user, token: cachedToken, offline: true };
-          }
+        // Servidor alcanzable pero respondió error (ej. credenciales
+        // inválidas): igual se intenta el fallback por si hay una sesión
+        // offline válida para este correo.
+        const offlineResult = await intentarOffline();
+        if (offlineResult) {
+          return offlineResult;
         }
         throw new Error('Credenciales incorrectas');
       }
@@ -71,9 +122,11 @@ export const loginUser = createAsyncThunk(
       const user = { ...rawUser, nombre: rawUser.full_name };
       const token = body.data.token;
 
-      // Guardar perfil (no sensible) para fallback offline; el token va aparte, cifrado
+      // Guardar perfil (no sensible) para fallback offline; el token y el
+      // hash de la contraseña van aparte, cifrados (SecureStore).
       await AsyncStorage.setItem('offline_user', JSON.stringify(user));
       await TokenStorage.setToken(token);
+      await TokenStorage.setPasswordHash(hashPassword(password));
 
       return { user, token, offline: false };
     } catch (error: any) {
@@ -92,6 +145,7 @@ const authSlice = createSlice({
       state.isAuthenticated = false;
       AsyncStorage.removeItem('offline_user');
       TokenStorage.clearToken();
+      TokenStorage.clearPasswordHash();
     },
     setOffline: (state, action: PayloadAction<boolean>) => {
       state.isOffline = action.payload;

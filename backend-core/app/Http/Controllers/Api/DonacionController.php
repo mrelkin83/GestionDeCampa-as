@@ -134,7 +134,14 @@ class DonacionController extends Controller
         DB::beginTransaction();
 
         try {
-            $donacion = Donacion::create(array_merge($request->all(), [
+            // Solo los campos validados arriba -pasar $request->all() permitía
+            // fijar directamente reportada_cne/fecha_reporte_cne/
+            // numero_reporte_cne (todos fillable, sin cubrir por la
+            // validación), dejando crear una donación ya marcada como
+            // "reportada al CNE" sin pasar nunca por reportarCNE() (que
+            // exige que esté 'confirmada' primero) -una vía de falsificar
+            // cumplimiento legal.
+            $donacion = Donacion::create(array_merge($validator->validated(), [
                 'registrado_por_id' => $request->user()->id,
                 'fecha_registro' => now(),
                 'estado' => 'pendiente',
@@ -156,10 +163,11 @@ class DonacionController extends Controller
             $donante->fecha_ultima_donacion = $request->fecha_donacion;
             $donante->save();
 
-            // Actualizar alertas en topes legales si es necesario
-            if ($topeLegal && !$excedeTopeIndividual) {
-                $this->actualizarAlertas($topeLegal, $request->campana_id);
-            }
+            // No se recalculan aquí las alertas de topes legales: la donación
+            // queda 'pendiente' y Donacion::confirmadas() no la cuenta todavía,
+            // así que hacerlo en este punto solo repetía el total previo sin
+            // reflejar nada nuevo. El recálculo real ocurre en confirmar(),
+            // que es cuando la donación empieza a contar de verdad.
 
             DB::commit();
 
@@ -262,6 +270,17 @@ class DonacionController extends Controller
             'numero_comprobante' => $request->numero_comprobante,
             'recibo_url' => $request->recibo_url,
         ]);
+
+        // Antes solo se recalculaba en store(), cuando la donación seguía
+        // 'pendiente' y por tanto Donacion::confirmadas() ni siquiera la
+        // contaba -era un recálculo del mismo total viejo, sin efecto real.
+        // El total/porcentaje de topes legales solo debe cambiar cuando la
+        // donación empieza a contar de verdad: al confirmarse (mismo punto
+        // del ciclo de vida que GastoController::aprobar()).
+        $topeLegal = TopeLegal::where('campana_id', $donacion->campana_id)->first();
+        if ($topeLegal) {
+            $this->actualizarAlertas($topeLegal, $donacion->campana_id);
+        }
 
         return response()->json([
             'success' => true,

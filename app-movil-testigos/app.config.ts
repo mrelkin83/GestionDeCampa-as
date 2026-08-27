@@ -4,12 +4,17 @@ import { ExpoConfig, ConfigContext } from 'expo/config';
 // Actualizar valores según el ambiente
 
 const IS_PRODUCTION = process.env.NODE_ENV === 'production';
-const API_URL = IS_PRODUCTION 
-  ? 'https://api.plataformaelectoral.com' 
-  : 'https://api-staging.plataformaelectoral.com';
-const WS_URL = IS_PRODUCTION
+// eas.json define API_URL/WS_URL por perfil (p.ej. "development-simulator"
+// -> localhost, para probar contra el backend local). Sin leerlos aquí,
+// ese perfil terminaba recibiendo igual las URLs de staging, porque su
+// NODE_ENV es "development" (no "production") y por lo tanto caía siempre
+// en la rama de staging del switch binario de abajo.
+const API_URL = process.env.API_URL || (IS_PRODUCTION
+  ? 'https://api.plataformaelectoral.com'
+  : 'https://api-staging.plataformaelectoral.com');
+const WS_URL = process.env.WS_URL || (IS_PRODUCTION
   ? 'wss://ws.plataformaelectoral.com'
-  : 'wss://ws-staging.plataformaelectoral.com';
+  : 'wss://ws-staging.plataformaelectoral.com');
 
 export default ({ config }: ConfigContext): ExpoConfig => ({
   ...config,

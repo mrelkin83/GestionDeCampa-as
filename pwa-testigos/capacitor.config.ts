@@ -1,5 +1,10 @@
 import type { CapacitorConfig } from '@capacitor/cli';
 
+// build-android.sh exporta CAPACITOR_BUILD_TYPE=release antes de `cap sync`.
+// Sin esto, un APK de producción se compilaba con depuración remota (DevTools
+// sobre USB) y contenido HTTP mixto permitidos, igual que un build debug.
+const isRelease = process.env.CAPACITOR_BUILD_TYPE === 'release';
+
 const config: CapacitorConfig = {
   appId: 'com.plataformaelectoral.testigos',
   appName: 'Testigos Electorales',
@@ -26,9 +31,9 @@ const config: CapacitorConfig = {
     },
   },
   android: {
-    allowMixedContent: true,
+    allowMixedContent: !isRelease,
     captureInput: true,
-    webContentsDebuggingEnabled: true,
+    webContentsDebuggingEnabled: !isRelease,
   },
 };
 

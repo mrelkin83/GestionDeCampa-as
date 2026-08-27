@@ -233,4 +233,5 @@ volumes:
 # ==============================================
 networks:
   electoral_network:
+    name: electoral_network
     driver: bridge

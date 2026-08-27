@@ -77,10 +77,15 @@ class ActualizarEstadoMensajeJob implements ShouldQueue
                     break;
             }
 
-            // Agregar metadata si existe
+            // Agregar metadata si existe. La columna real en `mensajes` es
+            // metadata_proveedor (ver migración); 'metadata' no es fillable
+            // ni existe como columna, así que esto se descartaba en
+            // silencio en cada update() -el error_code/price de Twilio, los
+            // detalles de bounce/complaint de SES y el timestamp/error de
+            // WhatsApp nunca se guardaban.
             if ($this->metadata) {
-                $metadataActual = $mensaje->metadata ?? [];
-                $datosActualizacion['metadata'] = array_merge($metadataActual, $this->metadata);
+                $metadataActual = $mensaje->metadata_proveedor ?? [];
+                $datosActualizacion['metadata_proveedor'] = array_merge($metadataActual, $this->metadata);
             }
 
             // Actualizar mensaje
@@ -118,15 +123,20 @@ class ActualizarEstadoMensajeJob implements ShouldQueue
             return;
         }
 
-        // Calcular estadísticas agregadas
+        // Calcular estadísticas agregadas.
+        // Las comillas dobles ("enviado") son identificadores en PostgreSQL
+        // (este proyecto usa pgsql), no literales de cadena -esto lanzaba
+        // siempre "column \"enviado\" does not exist" y hacía fallar el job
+        // entero (con reintentos) cada vez que un mensaje de una campaña
+        // con campana_comunicacion_id cambiaba de estado.
         $stats = DB::table('mensajes')
             ->where('campana_comunicacion_id', $campanaId)
             ->select([
                 DB::raw('COUNT(*) as total'),
-                DB::raw('SUM(CASE WHEN estado = "enviado" THEN 1 ELSE 0 END) as enviados'),
-                DB::raw('SUM(CASE WHEN estado = "entregado" THEN 1 ELSE 0 END) as entregados'),
-                DB::raw('SUM(CASE WHEN estado = "fallido" THEN 1 ELSE 0 END) as fallidos'),
-                DB::raw('SUM(CASE WHEN estado = "abierto" OR fecha_apertura IS NOT NULL THEN 1 ELSE 0 END) as abiertos'),
+                DB::raw("SUM(CASE WHEN estado = 'enviado' THEN 1 ELSE 0 END) as enviados"),
+                DB::raw("SUM(CASE WHEN estado = 'entregado' THEN 1 ELSE 0 END) as entregados"),
+                DB::raw("SUM(CASE WHEN estado = 'fallido' THEN 1 ELSE 0 END) as fallidos"),
+                DB::raw("SUM(CASE WHEN estado = 'abierto' OR fecha_apertura IS NOT NULL THEN 1 ELSE 0 END) as abiertos"),
                 DB::raw('SUM(CASE WHEN fecha_click IS NOT NULL THEN 1 ELSE 0 END) as clicks'),
             ])
             ->first();

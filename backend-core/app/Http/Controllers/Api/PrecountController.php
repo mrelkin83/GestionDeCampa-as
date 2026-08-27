@@ -445,7 +445,12 @@ class PrecountController extends Controller
             'resultados.*.candidate_id' => 'required|integer|exists:candidates,id',
             'resultados.*.votos' => 'required|integer|min:0',
             'observaciones' => 'nullable|string|max:1000',
-            'imagen_acta' => 'nullable|string', // Base64
+            // Antes solo se aceptaba una imagen (imagen_acta) aunque el testigo
+            // podía tomar varias fotos en la app; el resto se descartaba en
+            // silencio al sincronizar. PrecountEvidence ya soporta varias filas
+            // por acta, así que ahora se acepta un array.
+            'imagenes_acta' => 'nullable|array|max:5',
+            'imagenes_acta.*' => 'string', // Base64
             'gps' => 'nullable|array',
             'gps.lat' => 'nullable|numeric',
             'gps.lng' => 'nullable|numeric',
@@ -489,11 +494,14 @@ class PrecountController extends Controller
                 ]);
             }
 
-            // 4. Guardar evidencia si existe
-            $evidenceId = null;
-            if ($request->imagen_acta) {
-                $hash = hash('sha256', $request->imagen_acta);
-                
+            // 4. Guardar evidencias (una fila PrecountEvidence + un job por imagen)
+            foreach ($request->imagenes_acta ?? [] as $imagenBase64) {
+                if (!$imagenBase64) {
+                    continue;
+                }
+
+                $hash = hash('sha256', $imagenBase64);
+
                 // Crear registro inicial (sin URL aún)
                 $evidence = PrecountEvidence::create([
                     'precount_record_id' => $record->id,
@@ -503,11 +511,9 @@ class PrecountController extends Controller
                     'legible' => true,
                     'procesado' => false
                 ]);
-                
-                $evidenceId = $evidence->id;
-                
+
                 // Disparar job async para procesar imagen
-                ProcesarImagenActaJob::dispatch($evidenceId, $request->imagen_acta)
+                ProcesarImagenActaJob::dispatch($evidence->id, $imagenBase64)
                     ->onQueue('imagenes');
             }
 

@@ -181,6 +181,43 @@ export class SyncService {
   }
 
   /**
+   * Sincronizar una acta específica por su localId (usada por el botón
+   * "Sincronizar" de una tarjeta puntual en PendientesScreen; antes ese
+   * botón llamaba a sincronizarTodo() por error y terminaba enviando TODAS
+   * las actas pendientes, no solo la seleccionada).
+   */
+  async sincronizarActa(localId: string): Promise<SyncResult> {
+    const netInfo = await NetInfo.fetch();
+    if (!netInfo.isConnected) {
+      return {
+        success: false,
+        actasSincronizadas: 0,
+        errores: ['Sin conexión a internet'],
+      };
+    }
+
+    const acta = await this.db.obtenerActaPorLocalId(localId);
+    if (!acta) {
+      return {
+        success: false,
+        actasSincronizadas: 0,
+        errores: ['Acta no encontrada'],
+      };
+    }
+
+    try {
+      await this.sincronizarActaIndividual(acta);
+      return { success: true, actasSincronizadas: 1, errores: [] };
+    } catch (error: any) {
+      return {
+        success: false,
+        actasSincronizadas: 0,
+        errores: [`Mesa ${acta.mesaId}: ${error.message}`],
+      };
+    }
+  }
+
+  /**
    * Sincronizar una acta individual
    */
   private async sincronizarActaIndividual(acta: any): Promise<void> {
@@ -226,7 +263,7 @@ export class SyncService {
               votos: v.votos,
             })),
             observaciones: acta.observaciones,
-            imagen_acta: acta.evidencias[0] || null,
+            imagenes_acta: acta.evidencias, // Todas las fotos (antes se descartaban todas menos la primera)
             offline: true,
           }),
         },

@@ -209,6 +209,43 @@ export class DatabaseService {
     }));
   }
 
+  async obtenerActaPorLocalId(localId: string): Promise<ActaDB | null> {
+    if (!this.db) {
+      throw new Error('Database not initialized');
+    }
+
+    const row = await this.db.getFirstAsync<{
+      id: number;
+      localId: string;
+      electionId: number;
+      cargoId: number;
+      mesaId: number;
+      votos: string;
+      votantes: number;
+      votosNulos: number;
+      boletasEntregadas: number;
+      horaCierre: string;
+      observaciones: string;
+      evidencias: string;
+      estado: string;
+      intentos: number;
+      error: string | null;
+      creadoEn: number;
+      actualizadoEn: number;
+    }>('SELECT * FROM actas WHERE localId = ?', [localId]);
+
+    if (!row) {
+      return null;
+    }
+
+    return {
+      ...row,
+      votos: JSON.parse(row.votos) as VotoCandidato[],
+      evidencias: JSON.parse(row.evidencias) as string[],
+      estado: row.estado as ActaDB['estado'],
+    };
+  }
+
   async actualizarActa(
     localId: string,
     cambios: Partial<ActaDB>,

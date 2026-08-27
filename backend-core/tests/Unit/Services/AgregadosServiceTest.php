@@ -154,6 +154,43 @@ class AgregadosServiceTest extends TestCase
     }
 
     /** @test */
+    public function marca_es_ganador_en_el_candidato_con_mas_votos()
+    {
+        $candidato1 = Candidato::factory()->create(['election_position_id' => $this->cargo->id]);
+        $candidato2 = Candidato::factory()->create(['election_position_id' => $this->cargo->id]);
+
+        $record = PrecountRecord::factory()->create([
+            'polling_table_id' => $this->mesa->id,
+            'election_position_id' => $this->cargo->id,
+            'estado' => 'VALIDADA',
+        ]);
+
+        PrecountVote::factory()->create([
+            'precount_record_id' => $record->id,
+            'candidate_id' => $candidato1->id,
+            'votos' => 60,
+        ]);
+        PrecountVote::factory()->create([
+            'precount_record_id' => $record->id,
+            'candidate_id' => $candidato2->id,
+            'votos' => 40,
+        ]);
+
+        $this->service->recalcular($record);
+
+        // es_ganador quedaba hardcodeado en false para todos siempre
+        // ("se calcula después", pero nunca se calculaba) -el frontend usa
+        // este campo para resaltar al ganador en el gráfico en vivo.
+        $resultados = $this->service->obtenerResultados('MESA', $this->mesa->id, $this->cargo->id);
+
+        $porCandidato = collect($resultados['resultados'])->keyBy('candidate_id');
+
+        $this->assertTrue($porCandidato[$candidato1->id]['es_ganador']);
+        $this->assertFalse($porCandidato[$candidato2->id]['es_ganador']);
+        $this->assertEquals($candidato1->id, $resultados['ganador']['candidate_id']);
+    }
+
+    /** @test */
     public function actualiza_agregados_existentes_en_lugar_de_crear_duplicados()
     {
         $candidato = Candidato::factory()->create(['election_position_id' => $this->cargo->id]);

@@ -147,7 +147,7 @@ class SyncService {
           votos: v.votos,
         })),
         observaciones: acta.observaciones,
-        imagen_acta: acta.evidencias[0] || null, // Primera imagen como base64
+        imagenes_acta: acta.evidencias, // Todas las fotos (antes se descartaban todas menos la primera)
         offline: true,
       };
 

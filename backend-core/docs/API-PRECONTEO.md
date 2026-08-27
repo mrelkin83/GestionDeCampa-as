@@ -166,7 +166,7 @@ Content-Type: application/json
     {"candidate_id": 3, "votos": 40}
   ],
   "observaciones": "Sin novedades",
-  "imagen_acta": "base64_encoded_image...",
+  "imagenes_acta": ["base64_encoded_image_1...", "base64_encoded_image_2..."],
   "gps": {
     "lat": 6.2442,
     "lng": -75.5812

@@ -131,7 +131,12 @@ class DonanteController extends Controller
             ], 409);
         }
 
-        $donante = Donante::create(array_merge($request->all(), [
+        // Solo los campos validados arriba -pasar $request->all() permitía
+        // fijar directamente total_donado/numero_donaciones/razon_invalido
+        // (todos fillable), datos que deben salir únicamente del flujo real
+        // de DonacionController (mismo patrón de bug ya corregido en
+        // update() de este controlador).
+        $donante = Donante::create(array_merge($validator->validated(), [
             'es_valido' => true,
         ]));
 

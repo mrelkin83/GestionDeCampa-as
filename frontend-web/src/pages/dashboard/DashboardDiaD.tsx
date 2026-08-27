@@ -58,10 +58,12 @@ const DashboardDiaD: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [ultimaActualizacion, setUltimaActualizacion] = useState<Date>(new Date());
 
-  // AuthContext/lib/api.ts guardan el token bajo la clave 'auth_token', no
-  // 'token' -esta lectura siempre devolvía null, por lo que useWebSocket()
-  // nunca recibía un token real y el WebSocket jamás llegaba a conectarse.
-  const token = localStorage.getItem('auth_token');
+  // backend-diad verifica un JWT real (JWT_SECRET compartido), no el token
+  // opaco de Sanctum que usa el resto de la API (auth_token) -ese formato
+  // hace que jwt.verify() rechace la conexión siempre ("jwt malformed").
+  // AuthContext guarda el JWT aparte bajo 'ws_token' (ver AuthController::
+  // generarTokenWebSocket en backend-core).
+  const token = localStorage.getItem('ws_token');
 
   // Conectar WebSocket
   const { connected, authenticated, subscribe } = useWebSocket(token, {

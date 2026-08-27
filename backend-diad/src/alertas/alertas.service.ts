@@ -4,6 +4,7 @@ import { Repository } from 'typeorm';
 import { Alerta } from './entities/alerta.entity';
 import { CreateAlertaDto } from './dto/create-alerta.dto';
 import { AlertasGateway } from './alertas.gateway';
+import { assertCampaignAccess, JwtUser } from '../auth/campaign-access';
 
 @Injectable()
 export class AlertasService {
@@ -38,16 +39,19 @@ export class AlertasService {
     return query.orderBy('alerta.created_at', 'DESC').getMany();
   }
 
-  async findOne(id: string) {
+  async findOne(id: string, user?: JwtUser) {
     const alerta = await this.alertaRepository.findOne({ where: { id } });
     if (!alerta) {
       throw new NotFoundException(`Alerta ${id} no encontrada`);
     }
+    if (user) {
+      assertCampaignAccess(user, alerta.campaign_id);
+    }
     return alerta;
   }
 
-  async resolver(id: string, resolucion: string) {
-    const alerta = await this.findOne(id);
+  async resolver(id: string, resolucion: string, user: JwtUser) {
+    const alerta = await this.findOne(id, user);
     alerta.estado = 'resuelta';
     alerta.resolucion = resolucion;
     alerta.resuelta_at = new Date();
@@ -58,8 +62,8 @@ export class AlertasService {
     return resolved;
   }
 
-  async descartar(id: string) {
-    const alerta = await this.findOne(id);
+  async descartar(id: string, user: JwtUser) {
+    const alerta = await this.findOne(id, user);
     alerta.estado = 'descartada';
     alerta.updated_at = new Date();
 

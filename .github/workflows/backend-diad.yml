@@ -4,11 +4,11 @@ on:
   push:
     branches: [main, develop]
     paths:
-      - 'backend-dia-d/**'
+      - 'backend-diad/**'
   pull_request:
     branches: [main, develop]
     paths:
-      - 'backend-dia-d/**'
+      - 'backend-diad/**'
 
 env:
   NODE_VERSION: '18'
@@ -52,18 +52,18 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
-          cache-dependency-path: backend-dia-d/package-lock.json
+          cache-dependency-path: backend-diad/package-lock.json
 
       - name: Install Dependencies
-        working-directory: ./backend-dia-d
+        working-directory: ./backend-diad
         run: npm ci
 
       - name: Run Linter
-        working-directory: ./backend-dia-d
+        working-directory: ./backend-diad
         run: npm run lint
 
       - name: Run Tests
-        working-directory: ./backend-dia-d
+        working-directory: ./backend-diad
         env:
           DATABASE_URL: postgres://test:test@localhost:5432/preconteo_test
           REDIS_URL: redis://localhost:6379
@@ -73,7 +73,7 @@ jobs:
       - name: Upload Coverage
         uses: codecov/codecov-action@v3
         with:
-          files: ./backend-dia-d/coverage/lcov.info
+          files: ./backend-diad/coverage/lcov.info
           flags: websocket
           name: websocket-coverage
 
@@ -92,20 +92,20 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
-          cache-dependency-path: backend-dia-d/package-lock.json
+          cache-dependency-path: backend-diad/package-lock.json
 
       - name: Install Dependencies
-        working-directory: ./backend-dia-d
+        working-directory: ./backend-diad
         run: npm ci
 
       - name: Build
-        working-directory: ./backend-dia-d
+        working-directory: ./backend-diad
         run: npm run build
 
       - name: Create Deployment Package
         run: |
-          tar -czf backend-dia-d.tar.gz \
-            -C backend-dia-d \
+          tar -czf backend-diad.tar.gz \
+            -C backend-diad \
             dist/ \
             package.json \
             package-lock.json \
@@ -117,8 +117,8 @@ jobs:
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: backend-dia-d-production
-          path: backend-dia-d.tar.gz
+          name: backend-diad-production
+          path: backend-diad.tar.gz
           retention-days: 5
 
   deploy-staging:
@@ -134,7 +134,7 @@ jobs:
       - name: Download Artifact
         uses: actions/download-artifact@v4
         with:
-          name: backend-dia-d-production
+          name: backend-diad-production
 
       - name: Setup SSH
         uses: webfactory/ssh-agent@v0.8.0
@@ -146,14 +146,14 @@ jobs:
           HOST: ${{ secrets.STAGING_HOST }}
           USER: ${{ secrets.STAGING_USER }}
         run: |
-          scp -o StrictHostKeyChecking=no backend-dia-d.tar.gz $USER@$HOST:/tmp/
+          scp -o StrictHostKeyChecking=no backend-diad.tar.gz $USER@$HOST:/tmp/
           ssh -o StrictHostKeyChecking=no $USER@$HOST '
             cd /var/www/ws-staging &&
             sudo systemctl stop preconteo-ws &&
-            tar -xzf /tmp/backend-dia-d.tar.gz -C . --overwrite &&
+            tar -xzf /tmp/backend-diad.tar.gz -C . --overwrite &&
             npm ci --production &&
             sudo systemctl start preconteo-ws &&
-            rm /tmp/backend-dia-d.tar.gz
+            rm /tmp/backend-diad.tar.gz
           '
 
       - name: Health Check
@@ -174,7 +174,7 @@ jobs:
       - name: Download Artifact
         uses: actions/download-artifact@v4
         with:
-          name: backend-dia-d-production
+          name: backend-diad-production
 
       - name: Setup SSH
         uses: webfactory/ssh-agent@v0.8.0
@@ -186,14 +186,14 @@ jobs:
           HOST: ${{ secrets.PRODUCTION_HOST }}
           USER: ${{ secrets.PRODUCTION_USER }}
         run: |
-          scp -o StrictHostKeyChecking=no backend-dia-d.tar.gz $USER@$HOST:/tmp/
+          scp -o StrictHostKeyChecking=no backend-diad.tar.gz $USER@$HOST:/tmp/
           ssh -o StrictHostKeyChecking=no $USER@$HOST '
             cd /var/www/ws &&
             sudo systemctl stop preconteo-ws &&
-            tar -xzf /tmp/backend-dia-d.tar.gz -C . --overwrite &&
+            tar -xzf /tmp/backend-diad.tar.gz -C . --overwrite &&
             npm ci --production &&
             sudo systemctl start preconteo-ws &&
-            rm /tmp/backend-dia-d.tar.gz
+            rm /tmp/backend-diad.tar.gz
           '
 
       - name: Health Check

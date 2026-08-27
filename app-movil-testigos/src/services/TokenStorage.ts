@@ -10,6 +10,11 @@ import * as SecureStore from 'expo-secure-store';
  * permite subir actas de escrutinio, por lo que debe tratarse como secreto.
  */
 const TOKEN_KEY = 'auth_token';
+// Hash de la contraseña del último login online: permite verificar la
+// contraseña en el fallback offline (ver authSlice.ts) sin guardarla en
+// claro. Va en SecureStore, no en AsyncStorage con el resto del perfil,
+// por el mismo motivo que el token: es un dato sensible.
+const PASSWORD_HASH_KEY = 'auth_password_hash';
 
 export const TokenStorage = {
   async setToken(token: string): Promise<void> {
@@ -22,6 +27,18 @@ export const TokenStorage = {
 
   async clearToken(): Promise<void> {
     await SecureStore.deleteItemAsync(TOKEN_KEY);
+  },
+
+  async setPasswordHash(hash: string): Promise<void> {
+    await SecureStore.setItemAsync(PASSWORD_HASH_KEY, hash);
+  },
+
+  async getPasswordHash(): Promise<string | null> {
+    return SecureStore.getItemAsync(PASSWORD_HASH_KEY);
+  },
+
+  async clearPasswordHash(): Promise<void> {
+    await SecureStore.deleteItemAsync(PASSWORD_HASH_KEY);
   },
 };
 

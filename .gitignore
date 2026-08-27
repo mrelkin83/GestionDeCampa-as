@@ -21,12 +21,13 @@
 tmp/
 
 # ================== NODE.JS ==================
+# package-lock.json/yarn.lock SI se versionan a propósito: los scripts de
+# deploy.sh y build-android.sh usan `npm ci`, que exige un lockfile ya
+# commiteado (falla duro si no existe o no está en sync con package.json).
 node_modules/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
-package-lock.json
-yarn.lock
 .pnpm-debug.log*
 dist/
 build/
@@ -38,6 +39,7 @@ build/
 vendor/
 backend-core/vendor/
 backend-core/.env
+backend-core/.env.testing
 backend-core/.phpunit.result.cache
 backend-core/.phpunit.cache/
 backend-core/Homestead.json

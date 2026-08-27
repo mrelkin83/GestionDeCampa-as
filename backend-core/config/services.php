@@ -33,6 +33,15 @@ return [
         'app_secret' => env('WHATSAPP_APP_SECRET'),
     ],
 
+    // JWT firmado para que el frontend se autentique contra backend-diad
+    // (REST/WebSocket, tiempo real de Día D). No usar env() directo en el
+    // controlador: con `php artisan config:cache` (ver scripts/deploy.sh)
+    // env() fuera de un archivo de config devuelve null en producción.
+    'jwt_ws' => [
+        'secret' => env('JWT_SECRET'),
+        'ttl' => env('JWT_WS_TTL_HOURS', 24),
+    ],
+
     'wompi' => [
         'public_key' => env('WOMPI_PUBLIC_KEY'),
         'private_key' => env('WOMPI_PRIVATE_KEY'),

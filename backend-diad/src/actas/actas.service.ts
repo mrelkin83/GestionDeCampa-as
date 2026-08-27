@@ -10,6 +10,7 @@ import { CreateActaDto } from './dto/create-acta.dto';
 import { UpdateActaDto } from './dto/update-acta.dto';
 import { QueryActasDto } from './dto/query-actas.dto';
 import { ActasGateway } from './actas.gateway';
+import { assertCampaignAccess, JwtUser } from '../auth/campaign-access';
 
 @Injectable()
 export class ActasService {
@@ -48,7 +49,11 @@ export class ActasService {
     return savedActa;
   }
 
-  async findAll(query: QueryActasDto) {
+  async findAll(query: QueryActasDto, user: JwtUser) {
+    // Sin campaignId, esto listaba actas de TODAS las campañas. Se exige
+    // el campaignId y se valida acceso (fail closed).
+    assertCampaignAccess(user, query.campaignId);
+
     const queryBuilder = this.actaRepository.createQueryBuilder('acta');
 
     if (query.campaignId) {
@@ -85,16 +90,19 @@ export class ActasService {
     };
   }
 
-  async findOne(id: string) {
+  async findOne(id: string, user?: JwtUser) {
     const acta = await this.actaRepository.findOne({ where: { id } });
     if (!acta) {
       throw new NotFoundException(`Acta ${id} no encontrada`);
     }
+    if (user) {
+      assertCampaignAccess(user, acta.campaign_id);
+    }
     return acta;
   }
 
-  async update(id: string, updateActaDto: UpdateActaDto) {
-    const acta = await this.findOne(id);
+  async update(id: string, updateActaDto: UpdateActaDto, user: JwtUser) {
+    const acta = await this.findOne(id, user);
     Object.assign(acta, updateActaDto);
     acta.updated_at = new Date();
 
@@ -104,8 +112,8 @@ export class ActasService {
     return updated;
   }
 
-  async validar(id: string) {
-    const acta = await this.findOne(id);
+  async validar(id: string, user: JwtUser) {
+    const acta = await this.findOne(id, user);
     acta.estado = 'validada';
     acta.validada_at = new Date();
     acta.updated_at = new Date();
@@ -116,8 +124,8 @@ export class ActasService {
     return validated;
   }
 
-  async rechazar(id: string, razon: string) {
-    const acta = await this.findOne(id);
+  async rechazar(id: string, razon: string, user: JwtUser) {
+    const acta = await this.findOne(id, user);
     acta.estado = 'rechazada';
     acta.rechazo_razon = razon;
     acta.updated_at = new Date();
@@ -128,8 +136,8 @@ export class ActasService {
     return rejected;
   }
 
-  async procesarOcr(id: string) {
-    const acta = await this.findOne(id);
+  async procesarOcr(id: string, user: JwtUser) {
+    const acta = await this.findOne(id, user);
 
     if (!acta.imagen_url) {
       throw new BadRequestException('Acta no tiene imagen para procesar');
@@ -143,14 +151,20 @@ export class ActasService {
     return { message: 'OCR procesamiento iniciado', actaId: id };
   }
 
-  async findByMesa(mesaId: string) {
+  // Sin un campaignId único que validar (una mesa/testigo podría, en
+  // teoría, tener actas de más de una campaña), se aplica el mismo criterio
+  // fail-closed: solo super_admin puede consultar por mesa/testigo hasta
+  // que este subsistema tenga una relación real de pertenencia a campaña.
+  async findByMesa(mesaId: string, user: JwtUser) {
+    assertCampaignAccess(user, undefined);
     return this.actaRepository.find({
       where: { mesa_id: mesaId },
       order: { created_at: 'DESC' },
     });
   }
 
-  async findByTestigo(testigoId: string) {
+  async findByTestigo(testigoId: string, user: JwtUser) {
+    assertCampaignAccess(user, undefined);
     return this.actaRepository.find({
       where: { testigo_id: testigoId },
       order: { created_at: 'DESC' },

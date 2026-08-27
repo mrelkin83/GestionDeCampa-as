@@ -95,7 +95,12 @@ class EventoController extends Controller
             ], 422);
         }
 
-        $evento = Evento::create(array_merge($request->all(), [
+        // Solo los campos validados arriba -pasar $request->all() permitía
+        // fijar directamente total_confirmados/total_asistentes/
+        // total_ausentes/coordinador_id (todos fillable, sin cubrir por la
+        // validación) al crear el evento, mismo patrón de bug ya corregido
+        // en otros controladores (Donacion/Donante/Gasto/Votante).
+        $evento = Evento::create(array_merge($validator->validated(), [
             'created_by_id' => $request->user()->id,
             'estado' => 'planificado',
         ]));

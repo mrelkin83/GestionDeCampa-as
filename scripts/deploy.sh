@@ -19,7 +19,7 @@ echo "🚀 Iniciando deploy a $ENV..."
 backup_database() {
     echo "💾 Creando backup de base de datos..."
     mkdir -p $BACKUP_DIR
-    sudo -u postgres pg_dump preconteo > $BACKUP_DIR/preconteo_$DATE.sql
+    sudo -u postgres pg_dump electoral_platform > $BACKUP_DIR/preconteo_$DATE.sql
     echo "✅ Backup creado: $BACKUP_DIR/preconteo_$DATE.sql"
 }
 
@@ -155,7 +155,7 @@ rollback() {
     
     LATEST_BACKUP=$(ls -t $BACKUP_DIR/preconteo_*.sql | head -1)
     if [ -f "$LATEST_BACKUP" ]; then
-        sudo -u postgres psql -d preconteo -f "$LATEST_BACKUP"
+        sudo -u postgres psql -d electoral_platform -f "$LATEST_BACKUP"
         echo "✅ Base de datos restaurada desde: $LATEST_BACKUP"
     else
         echo "❌ No se encontró backup"

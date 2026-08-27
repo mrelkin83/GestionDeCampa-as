@@ -5,6 +5,7 @@ import { Testigo } from './entities/testigo.entity';
 import { UpdateEstadoDto } from './dto/update-estado.dto';
 import { QueryTestigosDto } from './dto/query-testigos.dto';
 import { TestigosGateway } from './testigos.gateway';
+import { assertCampaignAccess, JwtUser } from '../auth/campaign-access';
 
 @Injectable()
 export class TestigosService {
@@ -14,7 +15,11 @@ export class TestigosService {
     private readonly testigosGateway: TestigosGateway,
   ) {}
 
-  async findAll(query: QueryTestigosDto) {
+  async findAll(query: QueryTestigosDto, user: JwtUser) {
+    // Sin campaignId, esto listaba testigos de TODAS las campañas. Se
+    // exige el campaignId y se valida acceso (fail closed).
+    assertCampaignAccess(user, query.campaignId);
+
     const queryBuilder = this.testigoRepository.createQueryBuilder('testigo');
 
     if (query.campaignId) {
@@ -38,16 +43,19 @@ export class TestigosService {
     return { items, total, offset: query.offset || 0, limit: query.limit || 50 };
   }
 
-  async findOne(id: string) {
+  async findOne(id: string, user?: JwtUser) {
     const testigo = await this.testigoRepository.findOne({ where: { id } });
     if (!testigo) {
       throw new NotFoundException(`Testigo ${id} no encontrado`);
     }
+    if (user) {
+      assertCampaignAccess(user, testigo.campaign_id);
+    }
     return testigo;
   }
 
-  async updateEstado(id: string, dto: UpdateEstadoDto) {
-    const testigo = await this.findOne(id);
+  async updateEstado(id: string, dto: UpdateEstadoDto, user: JwtUser) {
+    const testigo = await this.findOne(id, user);
     testigo.estado_conexion = dto.estado;
     testigo.last_seen_at = new Date();
 
@@ -61,13 +69,14 @@ export class TestigosService {
     return updated;
   }
 
-  async getActividad(id: string) {
+  async getActividad(id: string, user: JwtUser) {
+    await this.findOne(id, user);
     // TODO: Get activity from logs table
     return { testigoId: id, actividades: [] };
   }
 
-  async checkin(id: string, body: any) {
-    const testigo = await this.findOne(id);
+  async checkin(id: string, body: any, user: JwtUser) {
+    const testigo = await this.findOne(id, user);
     testigo.estado_conexion = 'activo';
     testigo.last_seen_at = new Date();
 

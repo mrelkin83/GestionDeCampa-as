@@ -46,6 +46,31 @@ export function verifyWsConnectionOrDisconnect(client: Socket, logger: Logger): 
 }
 
 /**
+ * Autoriza que el socket ya autenticado (client.data.user, seteado por
+ * verifyWsConnectionOrDisconnect/WsJwtGuard) se una al room de una campaña
+ * específica. Antes, handleJoinCampaign en Actas/Alertas/Conteo/Testigos
+ * Gateway solo exigía estar autenticado -CUALQUIER usuario autenticado
+ * podía unirse al room de CUALQUIER campaignId con solo adivinar/probar el
+ * ID, recibiendo en tiempo real actas/alertas/conteo/checkins de campañas
+ * ajenas. El resto del sistema (backend-core) siempre valida pertenencia a
+ * campaña vía User::hasAccessToCampana(); aquí no había ningún control
+ * equivalente. El JWT emitido por AuthController::generarTokenWebSocket
+ * incluye 'role' y 'campanas' (IDs de campañas activas del usuario)
+ * específicamente para poder replicar ese mismo control aquí.
+ */
+export function canAccessCampaign(client: Socket, campaignId: string | number): boolean {
+  const user = client.data?.user;
+  if (!user) {
+    return false;
+  }
+  if (user.role === 'super_admin') {
+    return true;
+  }
+  const campanas: number[] = Array.isArray(user.campanas) ? user.campanas : [];
+  return campanas.includes(Number(campaignId));
+}
+
+/**
  * WsJwtGuard
  *
  * Guard para autenticar conexiones WebSocket usando JWT.

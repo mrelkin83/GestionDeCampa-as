@@ -391,7 +391,7 @@ class PrecountApiTest extends TestCase
             'votos_nulos' => 0,
             'votos_no_marcados' => 0,
             'resultados' => [['candidate_id' => $this->candidate->id, 'votos' => 100]],
-            'imagen_acta' => $imagenBase64,
+            'imagenes_acta' => [$imagenBase64],
         ];
 
         $response = $this->actingAs($this->user)
@@ -400,6 +400,30 @@ class PrecountApiTest extends TestCase
         $response->assertStatus(201);
 
         Queue::assertPushed(\App\Jobs\ProcesarImagenActaJob::class);
+    }
+
+    /** @test */
+    public function encola_un_job_por_cada_imagen_de_evidencia_enviada()
+    {
+        $imagen = fn () => 'data:image/jpeg;base64,' . base64_encode('fake-image-data');
+
+        $data = [
+            'polling_table_id' => $this->mesa->id,
+            'election_position_id' => $this->cargo->id,
+            'total_sufragantes' => 100,
+            'votos_nulos' => 0,
+            'votos_no_marcados' => 0,
+            'resultados' => [['candidate_id' => $this->candidate->id, 'votos' => 100]],
+            'imagenes_acta' => [$imagen(), $imagen(), $imagen()],
+        ];
+
+        $response = $this->actingAs($this->user)
+            ->postJson('/api/internal/preconteo/acta', $data);
+
+        $response->assertStatus(201);
+
+        Queue::assertPushed(\App\Jobs\ProcesarImagenActaJob::class, 3);
+        $this->assertDatabaseCount('precount_evidence', 3);
     }
 
     // ==========================================

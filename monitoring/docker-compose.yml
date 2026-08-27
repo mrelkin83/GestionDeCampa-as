@@ -60,7 +60,7 @@ services:
       - "3000:3000"
     networks:
       - monitoring
-      - web
+      - electoral_network
 
   # Node Exporter - System Metrics
   node-exporter:
@@ -104,12 +104,15 @@ services:
     container_name: postgres-exporter
     restart: unless-stopped
     environment:
-      DATA_SOURCE_NAME: "postgresql://monitoring:${DB_PASSWORD}@postgres:5432/preconteo?sslmode=disable"
+      # No existe un rol "monitoring" ni una BD "preconteo" (nombre histórico
+      # del proyecto); la BD real es "electoral_platform" y se usa el mismo
+      # superusuario que el resto del stack.
+      DATA_SOURCE_NAME: "postgresql://postgres:${DB_PASSWORD}@postgres:5432/electoral_platform?sslmode=disable"
     ports:
       - "9187:9187"
     networks:
       - monitoring
-      - backend
+      - electoral_network
 
   # Redis Exporter
   redis-exporter:
@@ -123,7 +126,7 @@ services:
       - "9121:9121"
     networks:
       - monitoring
-      - backend
+      - electoral_network
 
   # Nginx Exporter
   nginx-exporter:
@@ -136,7 +139,7 @@ services:
       - "9113:9113"
     networks:
       - monitoring
-      - backend
+      - electoral_network
 
   # Blackbox Exporter - Health Checks
   blackbox-exporter:
@@ -149,7 +152,7 @@ services:
       - "9115:9115"
     networks:
       - monitoring
-      - web
+      - electoral_network
 
   # Loki - Log Aggregation
   loki:
@@ -187,7 +190,9 @@ volumes:
 networks:
   monitoring:
     driver: bridge
-  backend:
-    external: true
-  web:
+  # Única red real del stack principal (docker-compose.yml de la raíz define
+  # solo "electoral_network", no "backend"/"web" por separado); sin el
+  # nombre exacto de una red ya existente, "external: true" hace que
+  # `docker compose up` falle con "network ... not found".
+  electoral_network:
     external: true

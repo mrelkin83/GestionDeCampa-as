@@ -79,6 +79,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (response.success && response.data?.token) {
       const normalized = normalizeUser(response.data.user)
       localStorage.setItem('auth_token', response.data.token)
+      // ws_token: JWT aparte para backend-diad (REST/WebSocket de Día D).
+      // auth_token es un token opaco de Sanctum -válido para backend-core,
+      // pero backend-diad verifica JWT reales firmados con JWT_SECRET, así
+      // que no sirve para autenticar el WebSocket (ver AuthController::
+      // generarTokenWebSocket en backend-core).
+      if (response.data.ws_token) {
+        localStorage.setItem('ws_token', response.data.ws_token)
+      }
       localStorage.setItem('user', JSON.stringify(normalized))
       setUser(normalized)
     } else {
@@ -100,6 +108,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       console.error('Error en logout:', error)
     } finally {
       localStorage.removeItem('auth_token')
+      localStorage.removeItem('ws_token')
       localStorage.removeItem('user')
       setUser(null)
     }

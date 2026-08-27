@@ -9,9 +9,46 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\ValidationException;
+use Firebase\JWT\JWT;
 
 class AuthController extends Controller
 {
+    /**
+     * JWT que el frontend usa para autenticarse contra backend-diad (REST y
+     * WebSocket de Día D). Antes no existía ningún emisor real de JWT en
+     * el monorepo: el frontend solo tenía el token opaco de Sanctum
+     * ($token más abajo), que los guards de backend-diad (jwt.verify)
+     * rechazan siempre como "jwt malformed" -ninguna conexión al módulo de
+     * Día D en tiempo real podía autenticarse nunca, sin importar que los
+     * guards estuvieran bien escritos. El secreto es compartido con
+     * backend-diad/.env (JWT_SECRET).
+     */
+    private function generarTokenWebSocket(User $user): ?string
+    {
+        $secret = config('services.jwt_ws.secret');
+
+        if (!$secret) {
+            return null;
+        }
+
+        $ttlHoras = (int) config('services.jwt_ws.ttl', 24);
+
+        // IDs de campañas activas del usuario: los gateways de backend-diad
+        // (Actas/Alertas/Conteo/Testigos) los usan para autorizar a qué
+        // rooms "campaign-{id}" puede unirse, igual que
+        // User::hasAccessToCampana() en el resto de la API.
+        $campanas = $user->campanas()->wherePivot('is_active', true)->pluck('campanas.id');
+
+        return JWT::encode([
+            'sub' => $user->id,
+            'email' => $user->email,
+            'role' => $user->role->name ?? null,
+            'campanas' => $campanas,
+            'iat' => now()->timestamp,
+            'exp' => now()->addHours($ttlHoras)->timestamp,
+        ], $secret, 'HS256');
+    }
+
     /**
      * Login de usuario
      *
@@ -81,6 +118,7 @@ class AuthController extends Controller
                     }),
                 ],
                 'token' => $token,
+                'ws_token' => $this->generarTokenWebSocket($user),
             ],
         ], 200);
     }

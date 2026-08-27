@@ -1,7 +1,10 @@
-import { Controller, Get, Param, Query } from '@nestjs/common';
+import { Controller, Get, Param, Query, UseGuards } from '@nestjs/common';
 import { ConteoService } from './conteo.service';
+import { CampaignParamGuard } from '../auth/campaign-access';
 
+// Todas las rutas de este controlador toman :campaignId directo en la URL.
 @Controller('conteo')
+@UseGuards(CampaignParamGuard)
 export class ConteoController {
   constructor(private readonly conteoService: ConteoService) {}
 

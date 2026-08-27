@@ -7,6 +7,7 @@ use App\Models\Campana;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
 class CampanaController extends Controller
@@ -85,29 +86,47 @@ class CampanaController extends Controller
             $counter++;
         }
 
-        $campana = Campana::create([
-            'nombre' => $request->nombre,
-            'slug' => $slug,
-            'cargo_electoral_id' => $request->cargo_electoral_id,
-            'fecha_eleccion' => $request->fecha_eleccion,
-            'tipo_eleccion' => $request->tipo_eleccion,
-            'departamento_id' => $request->departamento_id,
-            'municipio_id' => $request->municipio_id,
-            'candidato_nombre' => $request->candidato_nombre,
-            'candidato_documento' => $request->candidato_documento,
-            'partido_politico' => $request->partido_politico,
-            'slogan' => $request->slogan,
-            'tope_gastos' => $request->tope_gastos,
-            'estado' => 'planificacion',
-        ]);
-
-        // Asignar el usuario creador como admin de la campaña
+        // Antes esto no estaba en una transacción y asumía que el rol
+        // 'admin_campana' siempre existe: si faltara (seeders no corridos,
+        // rol borrado), "$adminRole->id" lanzaba un fatal DESPUÉS de que
+        // Campana::create() ya hubiera confirmado -dejando una campaña
+        // creada sin ningún usuario asignado, inaccesible para siempre
+        // (ni el creador ni super_admin la verían en index() salvo por
+        // consulta directa a la BD).
         $adminRole = \App\Models\Role::where('name', 'admin_campana')->first();
-        $campana->users()->attach($request->user()->id, [
-            'role_id' => $adminRole->id,
-            'is_active' => true,
-            'fecha_asignacion' => now(),
-        ]);
+        if (!$adminRole) {
+            return response()->json([
+                'success' => false,
+                'message' => 'No se encontró el rol "admin_campana". Contacte al administrador del sistema.',
+            ], 500);
+        }
+
+        $campana = DB::transaction(function () use ($request, $slug, $adminRole) {
+            $campana = Campana::create([
+                'nombre' => $request->nombre,
+                'slug' => $slug,
+                'cargo_electoral_id' => $request->cargo_electoral_id,
+                'fecha_eleccion' => $request->fecha_eleccion,
+                'tipo_eleccion' => $request->tipo_eleccion,
+                'departamento_id' => $request->departamento_id,
+                'municipio_id' => $request->municipio_id,
+                'candidato_nombre' => $request->candidato_nombre,
+                'candidato_documento' => $request->candidato_documento,
+                'partido_politico' => $request->partido_politico,
+                'slogan' => $request->slogan,
+                'tope_gastos' => $request->tope_gastos,
+                'estado' => 'planificacion',
+            ]);
+
+            // Asignar el usuario creador como admin de la campaña
+            $campana->users()->attach($request->user()->id, [
+                'role_id' => $adminRole->id,
+                'is_active' => true,
+                'fecha_asignacion' => now(),
+            ]);
+
+            return $campana;
+        });
 
         $campana->load(['cargoElectoral', 'departamento', 'municipio']);
 

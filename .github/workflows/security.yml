@@ -47,7 +47,7 @@ jobs:
       matrix:
         project:
           - backend-core
-          - backend-dia-d
+          - backend-diad
           - frontend-web
           - pwa-testigos
     
@@ -106,7 +106,7 @@ jobs:
         include:
           - project: backend-core
             command: composer install && vendor/bin/phpcs --standard=PSR12 app/
-          - project: backend-dia-d
+          - project: backend-diad
             command: npm ci && npm run lint
           - project: frontend-web
             command: npm ci && npm run lint

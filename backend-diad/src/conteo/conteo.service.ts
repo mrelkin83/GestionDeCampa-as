@@ -76,9 +76,11 @@ export class ConteoService {
       .groupBy('conteo.campaign_id')
       .getRawOne();
 
-    const porcentaje_avance = resultados
-      ? (resultados.mesas_reportadas / resultados.total_mesas) * 100
-      : 0;
+    const totalMesas = parseInt(resultados?.total_mesas || '0');
+    const porcentaje_avance =
+      resultados && totalMesas > 0
+        ? (parseInt(resultados.mesas_reportadas || '0') / totalMesas) * 100
+        : 0;
 
     return {
       campaignId,

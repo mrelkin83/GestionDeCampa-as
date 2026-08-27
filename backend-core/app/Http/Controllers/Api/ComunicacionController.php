@@ -86,7 +86,11 @@ class ComunicacionController extends Controller
             ], 403);
         }
 
-        $template = ComunicacionTemplate::create(array_merge($request->all(), [
+        // Solo los campos validados arriba -pasar $request->all() permitía
+        // fijar directamente veces_usado/ultima_vez_usado (fillable, sin
+        // cubrir por la validación) al crear el template, mismo patrón de
+        // bug ya corregido en otros controladores.
+        $template = ComunicacionTemplate::create(array_merge($validator->validated(), [
             'created_by_id' => $user->id,
             'activo' => true,
         ]));

@@ -123,7 +123,14 @@ class GastoController extends Controller
             $requiereValidacion = true;
         }
 
-        $gasto = Gasto::create(array_merge($request->all(), [
+        // Solo los campos validados arriba -pasar $request->all() permitía
+        // fijar directamente aprobado_por_id/fecha_aprobacion/reportado_cne/
+        // fecha_reporte_cne/numero_reporte_cne (todos fillable, sin cubrir
+        // por la validación), dejando crear un gasto ya con datos de
+        // aprobación/reporte al CNE sin pasar nunca por aprobar()/
+        // reportarCNE() (mismo patrón de bug corregido en
+        // DonacionController::store()).
+        $gasto = Gasto::create(array_merge($validator->validated(), [
             'responsable_id' => $request->user()->id,
             'fecha_registro' => now(),
             'estado' => 'pendiente',
