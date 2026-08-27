@@ -436,38 +436,32 @@ export const gastosAPI = {
 // Analytics API
 export const analyticsAPI = {
   // Analytics general - todas las métricas
-  general: async (params?: any) => {
-    const response = await api.get('/analytics/general', { params })
+  general: async (campanaId: number, filtros?: any) => {
+    const response = await api.get('/analytics/general', { params: { ...filtros, campana_id: campanaId } })
     return response.data
   },
 
   // Analytics de votantes
-  votantes: async (params?: any) => {
-    const response = await api.get('/analytics/votantes', { params })
+  votantes: async (campanaId: number, filtros?: any) => {
+    const response = await api.get('/analytics/votantes', { params: { ...filtros, campana_id: campanaId } })
     return response.data
   },
 
   // Analytics financiero
-  financiero: async (params?: any) => {
-    const response = await api.get('/analytics/financiero', { params })
+  financiero: async (campanaId: number, filtros?: any) => {
+    const response = await api.get('/analytics/financiero', { params: { ...filtros, campana_id: campanaId } })
     return response.data
   },
 
   // Analytics de comunicación
-  comunicacion: async (params?: any) => {
-    const response = await api.get('/analytics/comunicacion', { params })
+  comunicacion: async (campanaId: number, filtros?: any) => {
+    const response = await api.get('/analytics/comunicacion', { params: { ...filtros, campana_id: campanaId } })
     return response.data
   },
 
   // Analytics de eventos
-  eventos: async (params?: any) => {
-    const response = await api.get('/analytics/eventos', { params })
-    return response.data
-  },
-
-  // Resumen ejecutivo
-  resumenEjecutivo: async (params?: any) => {
-    const response = await api.get('/analytics/resumen-ejecutivo', { params })
+  eventos: async (campanaId: number, filtros?: any) => {
+    const response = await api.get('/analytics/eventos', { params: { ...filtros, campana_id: campanaId } })
     return response.data
   },
 }

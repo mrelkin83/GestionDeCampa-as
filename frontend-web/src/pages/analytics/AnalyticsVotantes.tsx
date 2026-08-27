@@ -19,11 +19,13 @@ import {
 import MainLayout from '@/components/layout/MainLayout'
 import { analyticsAPI } from '@/lib/api'
 import { AnalyticsVotantes as AnalyticsVotantesType, FiltrosAnalytics } from '@/types/analytics'
+import { useActiveCampana } from '@/hooks/useActiveCampana'
 
 const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4', '#84cc16']
 
 export default function AnalyticsVotantes() {
   const navigate = useNavigate()
+  const { campanaId, hasCampana } = useActiveCampana()
   const [loading, setLoading] = useState(true)
   const [data, setData] = useState<AnalyticsVotantesType | null>(null)
   const [filtros, setFiltros] = useState<FiltrosAnalytics>({
@@ -32,13 +34,18 @@ export default function AnalyticsVotantes() {
   })
 
   useEffect(() => {
-    loadAnalytics()
-  }, [filtros])
+    if (campanaId) {
+      loadAnalytics()
+    } else {
+      setLoading(false)
+    }
+  }, [filtros, campanaId])
 
   const loadAnalytics = async () => {
+    if (!campanaId) return
     try {
       setLoading(true)
-      const response = await analyticsAPI.votantes(filtros)
+      const response = await analyticsAPI.votantes(campanaId, filtros)
       setData(response.data)
     } catch (error) {
       console.error('Error cargando analytics de votantes:', error)
@@ -49,6 +56,16 @@ export default function AnalyticsVotantes() {
 
   const formatNumber = (num: number) => {
     return new Intl.NumberFormat('es-CO').format(num)
+  }
+
+  if (!hasCampana) {
+    return (
+      <MainLayout>
+        <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 rounded-lg p-6">
+          No tienes una campaña asignada, así que no hay datos disponibles para Analytics.
+        </div>
+      </MainLayout>
+    )
   }
 
   if (loading || !data) {

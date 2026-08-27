@@ -153,7 +153,10 @@ class ReporteService
 
         $total = (clone $query)->count();
         $porCanal = (clone $query)->select('canal', DB::raw('count(*) as total'))->groupBy('canal')->pluck('total', 'canal');
-        $entregados = (clone $query)->whereIn('estado', ['entregado', 'abierto', 'click'])->count();
+        // 'estado' en mensajes solo llega hasta 'entregado'/'fallido'/'rebotado'
+        // (ver migración de comunicacion_tables); apertura se registra en
+        // fecha_apertura, no como un valor de estado adicional como 'abierto'.
+        $entregados = (clone $query)->whereNotNull('fecha_entrega')->count();
         $abiertos = (clone $query)->whereNotNull('fecha_apertura')->count();
 
         return [

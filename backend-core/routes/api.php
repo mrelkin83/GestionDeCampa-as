@@ -17,6 +17,7 @@ use App\Http\Controllers\Api\SegmentoController;
 use App\Http\Controllers\Api\PrecountController;
 use App\Http\Controllers\Api\RoleController;
 use App\Http\Controllers\Api\ReporteController;
+use App\Http\Controllers\Api\AnalyticsController;
 
 /*
 |--------------------------------------------------------------------------
@@ -207,6 +208,14 @@ Route::middleware(['auth:sanctum', 'active'])->group(function () {
             ->middleware('role:admin_campana,super_admin');
         Route::post('/{id}/reportar-cne', [GastoController::class, 'reportarCNE'])
             ->middleware('role:admin_campana,super_admin');
+    });
+
+    Route::prefix('analytics')->group(function () {
+        Route::get('/general', [AnalyticsController::class, 'general']);
+        Route::get('/votantes', [AnalyticsController::class, 'votantes']);
+        Route::get('/financiero', [AnalyticsController::class, 'financiero']);
+        Route::get('/comunicacion', [AnalyticsController::class, 'comunicacion']);
+        Route::get('/eventos', [AnalyticsController::class, 'eventos']);
     });
 
     Route::prefix('reportes')->group(function () {
