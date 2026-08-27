@@ -59,6 +59,14 @@ import { Alerta } from './alertas/entities/alerta.entity';
       inject: [ConfigService],
     }),
 
+    // `bull` (y `multer`, usado solo en ActasController) traen vulnerabilidades
+    // npm conocidas (DoS, ver `npm audit`) sin fix no-breaking disponible -el
+    // fix real es migrar a BullMQ, que cambia la forma de BullRootModuleOptions
+    // y requiere su propio ciclo de prueba. Se deja sin migrar a propósito: hoy
+    // ambos solo se ejercitan desde el módulo `actas` (cola 'actas' + subida de
+    // imagen en ActasController), que no tiene ningún consumidor real todavía
+    // (ver nota en auth/campaign-access.ts) -no hay tráfico expuesto a estas
+    // dependencias en producción. Migrar antes de conectar un consumidor real.
     BullModule.forRootAsync({
       imports: [ConfigModule],
       useFactory: (configService: ConfigService) => ({
